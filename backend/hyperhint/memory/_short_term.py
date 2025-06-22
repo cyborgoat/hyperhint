@@ -98,10 +98,18 @@ class ShortTermMem:
         ]
         self.memory.extend(mock_items)
 
-    def add_knowledge_file(self, filename: str, content: str) -> bool:
+    def add_knowledge_file(self, filename: str, content: str) -> str:
         """Add a new knowledge file to short-term memory"""
         try:
+            # Simple duplicate handling
             file_path = self.data_path / filename
+            counter = 2
+            
+            while file_path.exists():
+                name, ext = filename.rsplit('.', 1) if '.' in filename else (filename, 'txt')
+                filename = f"{name}_{counter}.{ext}"
+                file_path = self.data_path / filename
+                counter += 1
             
             # Ensure directory exists
             file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -126,11 +134,11 @@ class ShortTermMem:
             self.memory.append(memory_item)
             
             print(f"Added knowledge file: {filename}")
-            return True
+            return filename
             
         except Exception as e:
             print(f"Error adding knowledge file {filename}: {e}")
-            return False
+            return ""
 
     def search(self, query: str) -> List[Suggestion]:
         """Search for files/folders matching the query"""

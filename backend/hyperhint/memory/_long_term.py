@@ -8,32 +8,8 @@ class LongTermMem:
         self._load_core_actions()
 
     def _load_core_actions(self):
-        """Load core actions only"""
+        """Load core actions - only add_knowledge"""
         core_actions = [
-            Action(
-                id="chat",
-                label="chat",
-                description="Start a conversation with the AI assistant",
-                command="/chat",
-                category="communication",
-                tags=["talk", "conversation", "discuss"]
-            ),
-            Action(
-                id="analyze",
-                label="analyze",
-                description="Analyze file content, code, or data",
-                command="/analyze",
-                category="analysis",
-                tags=["examine", "inspect", "review", "study"]
-            ),
-            Action(
-                id="format",
-                label="format",
-                description="Format code, text, or documents",
-                command="/format",
-                category="text",
-                tags=["beautify", "style", "clean", "prettify"]
-            ),
             Action(
                 id="add_knowledge",
                 label="add_knowledge",
@@ -79,55 +55,99 @@ class LongTermMem:
             return {"error": f"Action '{action_id}' not found"}
         
         try:
-            if action_id == "chat":
-                return {
-                    "action": "chat",
-                    "message": f"Starting chat conversation with: {user_input}",
-                    "status": "success"
-                }
-            
-            elif action_id == "analyze":
-                return {
-                    "action": "analyze", 
-                    "message": f"Analyzing content: {user_input[:100]}{'...' if len(user_input) > 100 else ''}",
-                    "analysis": "Content analysis would be performed here",
-                    "status": "success"
-                }
-            
-            elif action_id == "format":
-                return {
-                    "action": "format",
-                    "message": f"Formatting content: {user_input[:50]}{'...' if len(user_input) > 50 else ''}",
-                    "formatted": user_input.strip(),  # Simple formatting example
-                    "status": "success"
-                }
-            
-            elif action_id == "add_knowledge":
-                # Import here to avoid circular imports
+            if action_id == "add_knowledge":
                 from hyperhint.memory import short_term_memory
+                import re
                 
-                # Generate filename based on timestamp
-                from datetime import datetime
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"user_knowledge_{timestamp}.txt"
+                attachments = kwargs.get('attachments', [])
                 
-                # Save to short-term memory
-                success = short_term_memory.add_knowledge_file(filename, user_input)
+                # If there are file attachments, combine them into a single knowledge file
+                if attachments:
+                    file_attachments = [att for att in attachments if att.get('type') == 'file' and att.get('content')]
+                    
+                    if file_attachments:
+                        # Generate smart filename based on user input or file content
+                        if user_input.strip():
+                            # Use user input to generate filename
+                            words = re.findall(r'\b[a-zA-Z]{3,}\b', user_input.lower())
+                            if len(words) >= 2:
+                                filename = f"{words[0]}_{words[1]}.txt"
+                            elif len(words) == 1:
+                                filename = f"{words[0]}.txt"
+                            else:
+                                filename = "uploaded_files.txt"
+                        else:
+                            # Generate filename from file content or names
+                            if len(file_attachments) == 1:
+                                original_name = file_attachments[0].get('name', 'uploaded_file.txt')
+                                # Extract meaningful words from filename
+                                base_name = original_name.split('.')[0] if '.' in original_name else original_name
+                                words = re.findall(r'\b[a-zA-Z]{3,}\b', base_name.lower())
+                                if words:
+                                    filename = f"{words[0]}.txt"
+                                else:
+                                    filename = "uploaded_file.txt"
+                            else:
+                                filename = "multiple_files.txt"
+                        
+                        # Combine all file contents
+                        combined_content = ""
+                        
+                        # Add user message as context if provided
+                        if user_input.strip():
+                            combined_content += f"User note: {user_input}\n\n" + "=" * 50 + "\n\n"
+                        
+                        # Add each file's content
+                        for i, att in enumerate(file_attachments):
+                            file_name = att.get('name', f'file_{i+1}')
+                            file_content = att.get('content', '')
+                            
+                            if len(file_attachments) > 1:
+                                combined_content += f"File: {file_name}\n" + "-" * 40 + "\n"
+                            
+                            combined_content += file_content
+                            
+                            if i < len(file_attachments) - 1:
+                                combined_content += "\n\n" + "=" * 50 + "\n\n"
+                        
+                        # Save the combined content
+                        actual_filename = short_term_memory.add_knowledge_file(filename, combined_content)
+                        
+                        if actual_filename:
+                            return {
+                                "action": "add_knowledge",
+                                "message": f"File saved as {actual_filename}",
+                                "filename": actual_filename,
+                                "status": "success"
+                            }
+                        else:
+                            return {"action": "add_knowledge", "message": "Failed to save attachments", "status": "error"}
+                    else:
+                        return {"action": "add_knowledge", "message": "No valid file attachments found", "status": "error"}
                 
-                if success:
-                    return {
-                        "action": "add_knowledge",
-                        "message": f"Knowledge saved as {filename}",
-                        "filename": filename,
-                        "content_length": len(user_input),
-                        "status": "success"
-                    }
                 else:
-                    return {
-                        "action": "add_knowledge",
-                        "message": "Failed to save knowledge",
-                        "status": "error"
-                    }
+                    # No attachments, save user input as text
+                    # Simple filename generation from first few words
+                    words = re.findall(r'\b[a-zA-Z]{3,}\b', user_input.lower())
+                    if len(words) >= 2:
+                        filename = f"{words[0]}_{words[1]}.txt"
+                    elif len(words) == 1:
+                        filename = f"{words[0]}.txt"
+                    else:
+                        filename = "note.txt"
+                    
+                    # Save to memory
+                    actual_filename = short_term_memory.add_knowledge_file(filename, user_input)
+                    
+                    if actual_filename:
+                        return {
+                            "action": "add_knowledge",
+                            "message": f"Note saved as {actual_filename}",
+                            "filename": actual_filename,
+                            "status": "success"
+                        }
+                    else:
+                        return {"action": "add_knowledge", "message": "Failed to save note", "status": "error"}
             
             else:
                 return {"error": f"Action '{action_id}' execution not implemented"}

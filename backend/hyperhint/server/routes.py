@@ -99,6 +99,41 @@ async def refresh_models():
         raise HTTPException(status_code=500, detail=f"Error refreshing models: {str(e)}")
 
 
+@router.post("/actions/execute")
+async def execute_action(request_data: dict):
+    """Execute a specific action"""
+    try:
+        action_id = request_data.get("action_id")
+        user_input = request_data.get("user_input", "")
+        attachments = request_data.get("attachments", [])
+        
+        if not action_id:
+            raise HTTPException(status_code=400, detail="action_id is required")
+        
+        # Prepare user input with attachments if present
+        full_input = user_input
+        if attachments:
+            attachment_contents = []
+            for att in attachments:
+                att_name = att.get('name', 'unknown')
+                att_content = att.get('content')
+                att_size = att.get('size')
+                
+                if att_content:
+                    size_info = f" ({att_size} bytes)" if att_size else ""
+                    attachment_contents.append(f"File: {att_name}{size_info}\n{'-' * 40}\n{att_content}\n{'-' * 40}")
+            
+            if attachment_contents:
+                full_input += f"\n\nAttached Files:\n{'=' * 50}\n" + "\n\n".join(attachment_contents) + f"\n{'=' * 50}"
+        
+        # Execute the action
+        result = long_term_memory.execute_action(action_id, full_input)
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error executing action: {str(e)}")
+
+
 @router.get("/health")
 async def health_check():
     """Health check endpoint"""
