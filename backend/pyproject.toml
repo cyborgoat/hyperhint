@@ -1,0 +1,16 @@
+[project]
+name = "hyperhint"
+version = "0.1.0"
+description = "A short description of your project."
+authors = [
+    { name = "cyborgoat", email = "cyborgoat@outlook.com" },
+]
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "pydantic>=2.11.7",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta" 
