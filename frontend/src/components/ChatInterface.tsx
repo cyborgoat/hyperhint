@@ -24,7 +24,7 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState("claude-4-sonnet");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const currentRequestRef = useRef<NodeJS.Timeout | null>(null);
+  const currentStreamRef = useRef<{ eventSource?: EventSource; streamId?: string } | null>(null);
 
   const handleSendMessage = async (
     content: string,
@@ -43,38 +43,176 @@ export default function ChatInterface() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    // Simulate API call to LLM
-    currentRequestRef.current = setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `This is a mock response using ${selectedModel}. You sent: "${content}"${
-          attachments ? ` with ${attachments.length} attachment(s)` : ""
-        }. In a real implementation, this would be connected to your Ollama or OpenAI compatible endpoint.`,
-        role: "assistant",
+    // Generate unique stream ID
+    const streamId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Create assistant message that will be updated with streaming content
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      content: "",
+      role: "assistant",
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, assistantMessage]);
+
+    try {
+      // Connect to SSE endpoint
+      const response = await fetch("http://localhost:8000/api/chat/stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: content,
+          attachments: attachments || [],
+          model: selectedModel,
+          stream_id: streamId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error("No response body reader available");
+      }
+
+      // Store stream reference for cancellation
+      currentStreamRef.current = { streamId };
+
+      let buffer = "";
+      let assistantContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              switch (data.type) {
+                case 'start':
+                  console.log('Stream started:', data.timestamp);
+                  break;
+                  
+                case 'content':
+                  // Turn off loading state on first content chunk
+                  if (assistantContent === "") {
+                    setIsLoading(false);
+                  }
+                  // Append content to assistant message
+                  assistantContent += (assistantContent ? " " : "") + data.content;
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, content: assistantContent }
+                        : msg
+                    )
+                  );
+                  break;
+                  
+                case 'complete':
+                  console.log('Stream completed:', data.timestamp);
+                  setIsLoading(false);
+                  currentStreamRef.current = null;
+                  break;
+                  
+                case 'cancelled':
+                  console.log('Stream cancelled:', data.message);
+                  setIsLoading(false);
+                  currentStreamRef.current = null;
+                  // Add system message about cancellation
+                  const cancelMessage: Message = {
+                    id: Date.now().toString(),
+                    content: data.message || "Generation stopped by user.",
+                    role: "system",
+                    timestamp: new Date(),
+                  };
+                  setMessages((prev) => [...prev, cancelMessage]);
+                  break;
+                  
+                case 'error':
+                  console.error('Stream error:', data.message);
+                  setIsLoading(false);
+                  currentStreamRef.current = null;
+                  // Add error message
+                  const errorMessage: Message = {
+                    id: Date.now().toString(),
+                    content: `Error: ${data.message}`,
+                    role: "system",
+                    timestamp: new Date(),
+                  };
+                  setMessages((prev) => [...prev, errorMessage]);
+                  break;
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data:', e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('SSE connection error:', error);
+      setIsLoading(false);
+      currentStreamRef.current = null;
+      
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        content: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}. Falling back to mock response.`,
+        role: "system",
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsLoading(false);
-      currentRequestRef.current = null;
-    }, 2000);
+      setMessages((prev) => [...prev, errorMessage]);
+
+      // Fallback to mock response
+      setTimeout(() => {
+        const fallbackMessage: Message = {
+          id: (Date.now() + 2).toString(),
+          content: `This is a fallback mock response using ${selectedModel}. You sent: "${content}"${
+            attachments ? ` with ${attachments.length} attachment(s)` : ""
+          }. The backend connection failed, but this shows the UI still works.`,
+          role: "assistant",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, fallbackMessage]);
+      }, 1000);
+    }
   };
 
-  const handleStopGeneration = () => {
-    if (currentRequestRef.current) {
-      clearTimeout(currentRequestRef.current);
-      currentRequestRef.current = null;
+  const handleStopGeneration = async () => {
+    if (currentStreamRef.current?.streamId) {
+      try {
+        // Send stop request to backend
+        await fetch("http://localhost:8000/api/chat/stop", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            stream_id: currentStreamRef.current.streamId,
+          }),
+        });
+      } catch (error) {
+        console.error('Error stopping stream:', error);
+      }
     }
 
     setIsLoading(false);
-
-    // Add system message indicating the conversation was stopped
-    const stopMessage: Message = {
-      id: Date.now().toString(),
-      content: "Generation stopped by user.",
-      role: "system",
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, stopMessage]);
+    currentStreamRef.current = null;
   };
 
   useEffect(() => {
@@ -183,9 +321,24 @@ export default function ChatInterface() {
                               : "bg-muted"
                           }`}
                         >
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                            {message.content}
-                          </p>
+                          {message.role === "assistant" && !message.content && isLoading ? (
+                            // Show processing dots only for empty assistant messages during loading
+                            <div className="flex space-x-1">
+                              <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+                              <div
+                                className="w-2 h-2 bg-current rounded-full animate-bounce"
+                                style={{ animationDelay: "0.1s" }}
+                              ></div>
+                              <div
+                                className="w-2 h-2 bg-current rounded-full animate-bounce"
+                                style={{ animationDelay: "0.2s" }}
+                              ></div>
+                            </div>
+                          ) : (
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                              {message.content}
+                            </p>
+                          )}
                         </div>
 
                         {/* Timestamp */}
@@ -197,25 +350,6 @@ export default function ChatInterface() {
                       </div>
                     </div>
                   ))}
-
-                  {/* Loading indicator */}
-                  {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-muted rounded-2xl px-4 py-3">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
-                          <div
-                            className="w-2 h-2 bg-current rounded-full animate-bounce"
-                            style={{ animationDelay: "0.1s" }}
-                          ></div>
-                          <div
-                            className="w-2 h-2 bg-current rounded-full animate-bounce"
-                            style={{ animationDelay: "0.2s" }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>

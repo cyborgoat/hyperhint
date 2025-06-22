@@ -1,22 +1,46 @@
 import { NextResponse } from 'next/server'
 
-// Mock actions data
-const mockActions = [
-  { id: 'chat', label: 'chat', description: 'Start a conversation with the AI' },
-  { id: 'generate-workflow', label: 'generate-workflow', description: 'Create a new workflow based on your requirements' },
-  { id: 'execute-workflow', label: 'execute-workflow', description: 'Run an existing workflow from your collection' },
-]
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const query = searchParams.get('q')?.toLowerCase() || ''
+  const query = searchParams.get('q') || ''
 
-  const filteredActions = mockActions.filter(action =>
-    action.label.toLowerCase().includes(query) ||
-    action.description.toLowerCase().includes(query)
-  )
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/actions?q=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
-  return NextResponse.json({ actions: filteredActions })
+    if (!response.ok) {
+      throw new Error(`Backend responded with status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Error fetching actions from backend:', error)
+    
+    // Fallback to basic mock data if backend is not available
+    const mockActions = [
+      { id: 'search', label: 'search', description: 'Search through files and content' },
+      { id: 'create', label: 'create', description: 'Create a new file or folder' },
+      { id: 'edit', label: 'edit', description: 'Edit an existing file' },
+    ]
+    
+    const filteredActions = mockActions.filter(action =>
+      action.label.toLowerCase().includes(query.toLowerCase()) ||
+      action.description.toLowerCase().includes(query.toLowerCase())
+    )
+    
+    return NextResponse.json({ 
+      actions: filteredActions,
+      fallback: true,
+      error: 'Backend not available, using fallback data'
+    })
+  }
 }
 
 export async function POST() {

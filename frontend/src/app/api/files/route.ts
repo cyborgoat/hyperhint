@@ -1,26 +1,46 @@
 import { NextResponse } from 'next/server'
 
-// Mock file data - in real implementation, this would come from your FastAPI server
-const mockFiles = [
-  { id: '1', label: 'README.md', description: 'Project documentation', path: './README.md' },
-  { id: '2', label: 'package.json', description: 'Package configuration', path: './package.json' },
-  { id: '3', label: 'src/components/ChatInterface.tsx', description: 'Chat component', path: './src/components/ChatInterface.tsx' },
-  { id: '4', label: 'src/app/page.tsx', description: 'Main page component', path: './src/app/page.tsx' },
-  { id: '5', label: 'tailwind.config.js', description: 'Tailwind configuration', path: './tailwind.config.js' },
-  { id: '6', label: 'next.config.js', description: 'Next.js configuration', path: './next.config.js' },
-  { id: '7', label: 'tsconfig.json', description: 'TypeScript configuration', path: './tsconfig.json' },
-]
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const query = searchParams.get('q')?.toLowerCase() || ''
+  const query = searchParams.get('q') || ''
 
-  const filteredFiles = mockFiles.filter(file =>
-    file.label.toLowerCase().includes(query) ||
-    file.description.toLowerCase().includes(query)
-  )
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/files?q=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
-  return NextResponse.json({ files: filteredFiles })
+    if (!response.ok) {
+      throw new Error(`Backend responded with status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Error fetching files from backend:', error)
+    
+    // Fallback to basic mock data if backend is not available
+    const mockFiles = [
+      { id: '1', label: 'README.md', description: 'Project documentation' },
+      { id: '2', label: 'package.json', description: 'Package configuration' },
+      { id: '3', label: 'src/components/ChatInterface.tsx', description: 'Chat component' },
+    ]
+    
+    const filteredFiles = mockFiles.filter(file =>
+      file.label.toLowerCase().includes(query.toLowerCase()) ||
+      file.description.toLowerCase().includes(query.toLowerCase())
+    )
+    
+    return NextResponse.json({ 
+      files: filteredFiles,
+      fallback: true,
+      error: 'Backend not available, using fallback data'
+    })
+  }
 }
 
 export async function POST() {
