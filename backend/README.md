@@ -2,6 +2,8 @@
 
 A FastAPI-based backend server providing real-time file and action suggestions with WebSocket support.
 
+*Created by cyborgoat*
+
 ## Features
 
 - 🔍 **File System Scanning**: Automatically scans and indexes files and folders

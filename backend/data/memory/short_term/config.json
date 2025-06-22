@@ -1,0 +1,40 @@
+{
+  "app": {
+    "name": "HyperHint",
+    "version": "0.1.0",
+    "environment": "development"
+  },
+  "llm": {
+    "default_model": "claude-4-sonnet",
+    "ollama": {
+      "host": "http://localhost:11434",
+      "models": ["llama3.2", "codellama", "mistral"]
+    },
+    "openai": {
+      "api_key": "${OPENAI_API_KEY}",
+      "base_url": "${OPENAI_BASE_URL}",
+      "models": ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"]
+    }
+  },
+  "memory": {
+    "short_term": {
+      "max_files": 1000,
+      "scan_depth": 3,
+      "supported_extensions": [".md", ".txt", ".json", ".py", ".js", ".ts", ".tsx", ".jsx"]
+    },
+    "long_term": {
+      "actions": ["chat", "analyze", "format", "add_knowledge"]
+    }
+  },
+  "server": {
+    "host": "localhost",
+    "port": 8000,
+    "cors_origins": ["http://localhost:3000"],
+    "max_file_size": "10MB"
+  },
+  "frontend": {
+    "host": "localhost",
+    "port": 3000,
+    "api_base_url": "http://localhost:8000"
+  }
+} 

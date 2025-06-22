@@ -1,0 +1,160 @@
+@startuml
+!theme plain
+title HyperHint - Software Architecture Sequence Diagram
+
+note top
+Full-Stack AI Chat Application with Real-time File Integration
+Created by cyborgoat
+end note
+
+actor User as U
+participant "Next.js\nFrontend" as FE
+participant "FastAPI\nBackend" as BE
+participant "Memory\nSystem" as MEM
+participant "LLM\nManager" as LLM
+participant "Ollama/OpenAI" as AI
+database "File System" as FS
+
+== Application Initialization ==
+
+U -> FE: Access localhost:3000
+FE -> FE: Load React components
+FE -> BE: GET /api/models
+BE -> LLM: get_available_models()
+LLM -> AI: Check model health
+AI --> LLM: Model status
+LLM --> BE: Available models list
+BE --> FE: Models with health status
+FE -> FE: Update ModelSelector UI
+
+== File System Integration ==
+
+FE -> BE: GET /api/files
+BE -> MEM: short_term_memory.search()
+MEM -> FS: Scan data/memory/short_term/
+FS --> MEM: File list with metadata
+MEM --> BE: Processed file suggestions
+BE --> FE: File suggestions array
+FE -> FE: Populate @ suggestions
+
+== Action System ==
+
+FE -> BE: GET /api/actions
+BE -> MEM: long_term_memory.search()
+MEM -> MEM: Filter predefined actions
+MEM --> BE: Action suggestions
+BE --> FE: Action suggestions array
+FE -> FE: Populate / suggestions
+
+== Real-time Suggestions ==
+
+FE -> BE: WebSocket connection
+BE --> FE: Connection established
+U -> FE: Type "@config"
+FE -> BE: {"type": "files", "query": "config"}
+BE -> MEM: Filter files by query
+MEM --> BE: Filtered results
+BE --> FE: Real-time suggestions
+FE -> FE: Update suggestion dropdown
+
+== Chat Message Flow ==
+
+U -> FE: Type message + attach files
+FE -> FE: Process @ file references
+FE -> BE: POST /api/chat/stream
+
+note right of BE
+SSE streaming request
+end note
+
+BE -> MEM: Read attached file contents
+MEM -> FS: read_file_content()
+FS --> MEM: File content
+MEM --> BE: File content for context
+
+BE -> LLM: stream_chat(message, attachments, model)
+LLM -> LLM: Select service (Ollama/OpenAI)
+LLM -> AI: Stream request with context
+AI --> LLM: Streaming response chunks
+LLM --> BE: Process chunks
+BE --> FE: SSE data chunks
+FE -> FE: Accumulate streaming content
+FE -> FE: Render markdown progressively
+
+== Markdown Rendering ==
+
+FE -> FE: processMarkdownContent(content)
+FE -> FE: MarkdownMessage component
+FE -> FE: Apply syntax highlighting
+FE -> FE: Render tables, lists, code blocks
+FE -> U: Display rich formatted response
+
+== File Content Integration ==
+
+U -> FE: Select file with @
+FE -> BE: Attach file to message
+BE -> MEM: find_by_name(filename)
+MEM -> FS: Read actual file content
+FS --> MEM: File content string
+MEM --> BE: File content for LLM context
+BE -> LLM: Include file content in prompt
+LLM -> AI: Enhanced prompt with file context
+AI --> LLM: Context-aware response
+LLM --> BE: Streaming response
+BE --> FE: Enhanced response with file context
+
+== Action Execution ==
+
+U -> FE: Select action with /
+FE -> BE: Include action in message
+BE -> MEM: execute_action(action_name, content)
+
+alt action == "add_knowledge"
+    MEM -> FS: Save content to memory files
+    FS --> MEM: Confirmation
+    MEM --> BE: Action executed
+else other actions
+    MEM --> BE: Action description
+end
+
+BE -> LLM: Process with action context
+LLM -> AI: Action-specific prompt
+AI --> LLM: Action-aware response
+LLM --> BE: Streaming response
+BE --> FE: Action result
+
+== Model Health Monitoring ==
+
+FE -> BE: GET /api/models/{model}/health
+BE -> LLM: check_model_health(model)
+LLM -> AI: Test model availability
+AI --> LLM: Health status
+LLM --> BE: Health data
+BE --> FE: Model health data
+FE -> FE: Update health indicators
+
+== Error Handling ==
+
+alt LLM Service Unavailable
+    LLM --> BE: Service error
+    BE --> FE: Error message
+    FE -> U: Display error message
+else Streaming Interrupted
+    U -> FE: Click stop button
+    FE -> BE: POST /api/chat/stop
+    BE -> LLM: Cancel streaming
+    LLM --> BE: Stream cancelled
+    BE --> FE: Stream complete
+    FE -> FE: Add "Generation stopped" message
+end
+
+== Environment Configuration ==
+
+BE -> BE: Load .env configuration
+BE -> LLM: Initialize with environment
+LLM -> LLM: Configure Ollama/OpenAI clients
+LLM -> AI: Test connections
+AI --> LLM: Connection status
+LLM --> BE: Services ready
+
+@enduml 

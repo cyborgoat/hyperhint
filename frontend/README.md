@@ -2,6 +2,8 @@
 
 A Next.js 15 chat application with intelligent autocomplete functionality for files and actions.
 
+*Created by cyborgoat*
+
 ## Features
 
 - 🤖 **LLM Chat Interface**: Clean, modern chat UI ready for integration with Ollama or OpenAI compatible endpoints

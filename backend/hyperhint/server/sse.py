@@ -5,6 +5,10 @@ import json
 import asyncio
 from datetime import datetime
 
+# Import the LLM manager and memory
+from hyperhint.llm import llm_manager
+from hyperhint.memory import short_term_memory
+
 sse_router = APIRouter()
 
 # Store active streaming sessions for cancellation
@@ -17,51 +21,57 @@ async def generate_chat_stream(
     model: str = "claude-4-sonnet",
     stream_id: str = None
 ) -> AsyncGenerator[str, None]:
-    """Generate streaming chat response"""
-    
-    # Mock streaming response - replace with actual LLM integration
-    response_parts = [
-        f"I received your message: '{message}'",
-        f"Using model: {model}",
-        f"Attachments: {len(attachments) if attachments else 0}",
-        "This is a mock streaming response from the HyperHint backend.",
-        "In a real implementation, this would be connected to your LLM service.",
-        "Each part of this response is streamed in real-time.",
-        "You can interrupt this generation at any time using the stop button."
-    ]
+    """Generate streaming chat response using real LLM services"""
     
     try:
-        # Send initial event
-        yield f"data: {json.dumps({'type': 'start', 'timestamp': datetime.now().isoformat()})}\n\n"
+        # Prepare messages for LLM
+        messages = [{"role": "user", "content": message}]
         
-        # Stream response parts
-        for i, part in enumerate(response_parts):
+        # Add attachment information and content to context if present
+        if attachments:
+            attachment_contents = []
+            for att in attachments:
+                att_name = att.get('name', 'unknown')
+                att_type = att.get('type', 'file')
+                
+                if att_type == 'file':
+                    # Try to read file content from memory
+                    file_content = None
+                    
+                    # Find the file in memory by name
+                    memory_item = short_term_memory.find_by_name(att_name)
+                    if memory_item and memory_item.file_path:
+                        file_content = short_term_memory.read_file_content(memory_item.file_path)
+                    
+                    if file_content:
+                        attachment_contents.append(f"File: {att_name}\n{'-' * 40}\n{file_content}\n{'-' * 40}")
+                    else:
+                        attachment_contents.append(f"File: {att_name} (content not available)")
+                else:
+                    attachment_contents.append(f"Attachment: {att_name} ({att_type})")
+            
+            if attachment_contents:
+                attachment_info = f"\n\nReferenced Files:\n{'=' * 50}\n" + "\n\n".join(attachment_contents) + f"\n{'=' * 50}"
+                messages[0]["content"] += attachment_info
+        
+        # Stream from LLM manager
+        async for chunk in llm_manager.stream_chat(messages, model, stream_id):
             # Check if stream should be cancelled
             if stream_id and not active_streams.get(stream_id, True):
                 yield f"data: {json.dumps({'type': 'cancelled', 'message': 'Generation stopped by user.'})}\n\n"
                 break
-                
-            # Simulate processing time
-            await asyncio.sleep(0.5)
             
-            # Send content chunk
-            chunk_data = {
-                'type': 'content',
-                'content': part,
-                'chunk_index': i,
-                'timestamp': datetime.now().isoformat()
-            }
-            yield f"data: {json.dumps(chunk_data)}\n\n"
-        
-        # Send completion event if not cancelled
-        if stream_id and active_streams.get(stream_id, True):
-            yield f"data: {json.dumps({'type': 'complete', 'timestamp': datetime.now().isoformat()})}\n\n"
+            # Forward the chunk from LLM manager
+            yield f"data: {json.dumps(chunk)}\n\n"
+            
+            # Small delay for better UX
+            await asyncio.sleep(0.01)
             
     except Exception as e:
         # Send error event
         error_data = {
             'type': 'error',
-            'message': f'Stream error: {str(e)}',
+            'message': f'LLM service error: {str(e)}',
             'timestamp': datetime.now().isoformat()
         }
         yield f"data: {json.dumps(error_data)}\n\n"
@@ -128,5 +138,10 @@ async def get_stream_status():
     """Get status of active streams"""
     return {
         "active_streams": len(active_streams),
-        "stream_ids": list(active_streams.keys())
+        "stream_ids": list(active_streams.keys()),
+        "llm_status": {
+            "available_models": llm_manager.get_available_models(),
+            "ollama_available": llm_manager.ollama.is_available(),
+            "openai_available": llm_manager.openai.is_available()
+        }
     } 

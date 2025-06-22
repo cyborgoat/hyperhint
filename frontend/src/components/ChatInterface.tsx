@@ -6,6 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import EnhancedInput from "@/components/EnhancedInput";
 import ModelSelector from "@/components/ModelSelector";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
+import MarkdownMessage from "@/components/MarkdownMessage";
+import { processMarkdownContent, accumulateStreamingContent } from "@/lib/textUtils";
 
 interface Message {
   id: string;
@@ -22,7 +24,7 @@ interface Message {
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("claude-4-sonnet");
+  const [selectedModel, setSelectedModel] = useState("llama3.2");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const currentStreamRef = useRef<{ eventSource?: EventSource; streamId?: string } | null>(null);
 
@@ -113,8 +115,8 @@ export default function ChatInterface() {
                   if (assistantContent === "") {
                     setIsLoading(false);
                   }
-                  // Append content to assistant message
-                  assistantContent += (assistantContent ? " " : "") + data.content;
+                  // Append content to assistant message using text utilities
+                  assistantContent = accumulateStreamingContent(assistantContent, data.content);
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === assistantMessageId
@@ -334,6 +336,11 @@ export default function ChatInterface() {
                                 style={{ animationDelay: "0.2s" }}
                               ></div>
                             </div>
+                          ) : message.role === "assistant" ? (
+                            <MarkdownMessage 
+                              content={processMarkdownContent(message.content)} 
+                              className="text-sm"
+                            />
                           ) : (
                             <p className="whitespace-pre-wrap text-sm leading-relaxed">
                               {message.content}

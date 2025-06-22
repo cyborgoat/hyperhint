@@ -38,8 +38,15 @@ const fetchSuggestions = async (
   try {
     const endpoint = type === "@" ? "/api/files" : "/api/actions";
     const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const data = await response.json();
-    return type === "@" ? data.files : data.actions;
+    
+    // The backend returns the array directly, not wrapped in an object
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Error fetching suggestions:", error);
     return [];
@@ -114,11 +121,15 @@ export default function EnhancedInput({ onSend, isLoading = false, onStop }: Enh
 
       // Fetch suggestions from API
       fetchSuggestions(trigger, query).then((filtered) => {
-        setSuggestions(filtered);
-        setShowSuggestions(filtered.length > 0);
+        setSuggestions(filtered || []);
+        setShowSuggestions((filtered || []).length > 0);
         setTriggerType(trigger);
         setTriggerPosition(triggerPos);
         setSelectedIndex(0);
+      }).catch((error) => {
+        console.error("Error fetching suggestions:", error);
+        setSuggestions([]);
+        setShowSuggestions(false);
       });
     } else {
       setShowSuggestions(false);
@@ -244,10 +255,14 @@ export default function EnhancedInput({ onSend, isLoading = false, onStop }: Enh
 
   const openAtMenu = () => {
     fetchSuggestions("@", "").then((files) => {
-      setSuggestions(files);
-      setShowSuggestions(true);
+      setSuggestions(files || []);
+      setShowSuggestions((files || []).length > 0);
       setTriggerType("@");
       setSelectedIndex(0);
+    }).catch((error) => {
+      console.error("Error fetching file suggestions:", error);
+      setSuggestions([]);
+      setShowSuggestions(false);
     });
   };
 

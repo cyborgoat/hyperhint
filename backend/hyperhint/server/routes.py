@@ -1,72 +1,121 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import List, Optional
-from hyperhint.memory._short_term import ShortTermMem
-from hyperhint.memory._long_term import LongTermMem
-from hyperhint.memory._types import Suggestion
+import asyncio
+
+from hyperhint.memory import short_term_memory, long_term_memory
+from hyperhint.llm import llm_manager
 
 router = APIRouter()
 
-# Initialize memory instances
-short_term_memory = ShortTermMem()
-long_term_memory = LongTermMem()
 
-
-@router.get("/files", response_model=dict)
-async def get_files(q: str = Query("", description="Search query for files")):
-    """Get file suggestions based on search query"""
+@router.get("/files")
+async def get_file_suggestions(q: str = Query("", description="Search query")):
+    """Get file suggestions for autocomplete"""
     try:
         suggestions = short_term_memory.search(q)
-        return {
-            "files": [
-                {
-                    "id": suggestion.id,
-                    "label": suggestion.label,
-                    "description": suggestion.description
-                }
-                for suggestion in suggestions
-            ]
-        }
+        return [suggestion.model_dump() for suggestion in suggestions]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching files: {str(e)}")
 
 
-@router.get("/actions", response_model=dict)
-async def get_actions(q: str = Query("", description="Search query for actions")):
-    """Get action suggestions based on search query"""
+@router.get("/actions")
+async def get_action_suggestions(q: str = Query("", description="Search query")):
+    """Get action suggestions for autocomplete"""
     try:
         suggestions = long_term_memory.search(q)
-        return {
-            "actions": [
-                {
-                    "id": suggestion.id,
-                    "label": suggestion.label,
-                    "description": suggestion.description
-                }
-                for suggestion in suggestions
-            ]
-        }
+        return [suggestion.model_dump() for suggestion in suggestions]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching actions: {str(e)}")
 
 
-@router.post("/refresh")
-async def refresh_files():
-    """Refresh the file system scan"""
-    try:
-        short_term_memory.refresh()
-        return {"message": "File system refreshed successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error refreshing files: {str(e)}")
-
-
 @router.get("/stats")
 async def get_stats():
-    """Get memory statistics"""
-    return {
-        "files_count": len(short_term_memory),
-        "actions_count": len(long_term_memory),
-        "memory_info": {
-            "short_term": repr(short_term_memory),
-            "long_term": repr(long_term_memory)
+    """Get system statistics"""
+    try:
+        return {
+            "short_term_memory": {
+                "total_items": len(short_term_memory),
+                "files": len([item for item in short_term_memory if item.type == "file"]),
+                "folders": len([item for item in short_term_memory if item.type == "folder"]),
+                "images": len([item for item in short_term_memory if item.type == "image"])
+            },
+            "long_term_memory": {
+                "total_actions": len(long_term_memory)
+            },
+            "llm_services": llm_manager.get_available_models()
         }
-    } 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting stats: {str(e)}")
+
+
+@router.post("/refresh")
+async def refresh_memory():
+    """Refresh memory systems"""
+    try:
+        short_term_memory.refresh()
+        return {
+            "message": "Memory refreshed successfully",
+            "stats": {
+                "short_term_items": len(short_term_memory),
+                "long_term_actions": len(long_term_memory)
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error refreshing memory: {str(e)}")
+
+
+@router.get("/models")
+async def get_available_models():
+    """Get all available LLM models with health status"""
+    try:
+        models_info = llm_manager.get_available_models()
+        return models_info
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting models: {str(e)}")
+
+
+@router.get("/models/{model_id}/health")
+async def get_model_health(model_id: str):
+    """Get health status for a specific model"""
+    try:
+        health_info = llm_manager.get_model_health(model_id)
+        return health_info
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting model health: {str(e)}")
+
+
+@router.post("/models/refresh")
+async def refresh_models():
+    """Refresh available models list"""
+    try:
+        # Re-initialize the LLM manager to refresh model mappings
+        llm_manager._update_model_mapping()
+        models_info = llm_manager.get_available_models()
+        return {
+            "message": "Models refreshed successfully",
+            "models": models_info
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error refreshing models: {str(e)}")
+
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    try:
+        models_info = llm_manager.get_available_models()
+        return {
+            "status": "healthy",
+            "timestamp": "now",
+            "services": {
+                "ollama": models_info["services"]["ollama"]["status"],
+                "openai": models_info["services"]["openai"]["status"]
+            },
+            "default_model": models_info["default_model"],
+            "total_models": len(models_info["all_models"])
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        } 
