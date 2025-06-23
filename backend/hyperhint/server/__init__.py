@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from hyperhint.server.routes import router
-from hyperhint.server.websocket import websocket_router
 from hyperhint.server.sse import sse_router
+from hyperhint.server.websocket import websocket_router
+
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application"""

@@ -3,10 +3,9 @@
 Sample Python code for HyperHint project demonstration
 """
 
-from typing import List, Dict, Any, Optional
 import asyncio
-import json
 from datetime import datetime
+from typing import Any, Dict, List
 
 
 class MessageProcessor:

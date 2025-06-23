@@ -5,6 +5,7 @@ A FastAPI-based server providing real-time file and action suggestions
 """
 
 import uvicorn
+
 from hyperhint.server import create_app
 
 # Create the FastAPI app

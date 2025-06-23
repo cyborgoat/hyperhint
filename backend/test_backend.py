@@ -4,9 +4,10 @@ Simple test script to verify HyperHint backend functionality
 """
 
 import asyncio
-import json
-from hyperhint.memory._short_term import ShortTermMem
+
 from hyperhint.memory._long_term import LongTermMem
+from hyperhint.memory._short_term import ShortTermMem
+
 
 async def test_memory_systems():
     """Test the memory systems"""

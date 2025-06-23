@@ -4,10 +4,9 @@
 # Parse the response
 # Return the response
 
-from typing import AsyncGenerator, List, Dict, Any, Optional
 import asyncio
 from datetime import datetime
-import json
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 try:
     from ollama import AsyncClient, Client

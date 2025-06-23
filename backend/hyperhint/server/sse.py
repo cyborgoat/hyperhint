@@ -1,9 +1,10 @@
+import asyncio
+import json
+from datetime import datetime
+from typing import AsyncGenerator, Dict
+
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
-from typing import AsyncGenerator, Dict, Any
-import json
-import asyncio
-from datetime import datetime
 
 # Import the LLM manager and memory
 from hyperhint.llm import llm_manager
@@ -29,7 +30,7 @@ async def generate_chat_stream(
         if selected_action:
             # Import here to avoid circular imports
             from hyperhint.memory import long_term_memory
-            
+
             # Send action execution start event
             yield f"data: {json.dumps({'type': 'action_start', 'action': selected_action, 'timestamp': datetime.now().isoformat()})}\n\n"
             

@@ -1,6 +1,8 @@
-from typing import AsyncGenerator, Dict, Any, List, Optional
 import os
+from typing import Any, AsyncGenerator, Dict, List, Optional
+
 from dotenv import load_dotenv
+
 from ._ollama import OllamaService
 from ._openai import OpenAIService
 

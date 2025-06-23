@@ -1,6 +1,6 @@
-from ._types import Memory, Action, Suggestion
-from ._short_term import ShortTermMem
 from ._long_term import LongTermMem
+from ._short_term import ShortTermMem
+from ._types import Action, Memory, Suggestion
 
 # Create global instances
 short_term_memory = ShortTermMem()

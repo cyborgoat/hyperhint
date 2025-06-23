@@ -229,10 +229,10 @@ export default function ChatInterface() {
   }, [messages, isLoading]);
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className="flex overflow-hidden flex-col h-screen bg-background">
       {/* Header with model selector */}
       <div className="flex-shrink-0 border-b px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center max-w-4xl mx-auto">
+        <div className="flex items-center mx-auto max-w-4xl">
           <div className="flex items-center space-x-4">
             <h1 className="text-lg font-semibold">HyperHint</h1>
             <Separator orientation="vertical" className="h-5" />
@@ -245,13 +245,13 @@ export default function ChatInterface() {
       </div>
 
       {/* Main content area - this will take remaining height */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex flex-col flex-1 min-h-0">
         {/* Messages area with proper ScrollArea */}
         <div className="flex-1 min-h-0">
           <ScrollArea className="h-full" ref={scrollAreaRef}>
-            <div className="max-w-4xl mx-auto px-4 py-6">
+            <div className="px-4 py-6 mx-auto max-w-4xl">
               {messages.length === 0 ? (
-                <div className="text-center text-muted-foreground py-12">
+                <div className="py-12 text-center text-muted-foreground">
                   <div className="space-y-3">
                     <p className="text-xl font-medium">
                       How can I help you today?
@@ -304,7 +304,7 @@ export default function ChatInterface() {
                               {message.attachments.map((attachment, index) => (
                                 <div
                                   key={index}
-                                  className="flex items-center space-x-2 bg-muted px-2 py-1 rounded-md text-xs"
+                                  className="flex items-center px-2 py-1 space-x-2 text-xs rounded-md bg-muted"
                                 >
                                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                                   <span>{attachment.name}</span>
@@ -342,7 +342,7 @@ export default function ChatInterface() {
                               className="text-sm"
                             />
                           ) : (
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">
                               {message.content}
                             </p>
                           )}
@@ -350,7 +350,7 @@ export default function ChatInterface() {
 
                         {/* Timestamp */}
                         {message.role !== "system" && (
-                          <p className="text-xs text-muted-foreground px-1">
+                          <p className="px-1 text-xs text-muted-foreground">
                             {message.timestamp.toLocaleTimeString()}
                           </p>
                         )}
@@ -366,7 +366,7 @@ export default function ChatInterface() {
         {/* Generating indicator */}
         {isLoading && (
           <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
-            <div className="max-w-4xl mx-auto">
+            <div className="mx-auto max-w-4xl">
               <TextShimmer
                 duration={1.2}
                 className="pl-6 text-sm [--base-color:theme(colors.muted.foreground)] [--base-gradient-color:theme(colors.foreground)]"
@@ -379,7 +379,7 @@ export default function ChatInterface() {
 
         {/* Input area */}
         <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="max-w-4xl mx-auto p-4">
+          <div className="p-4 mx-auto max-w-4xl">
             <EnhancedInput
               onSend={handleSendMessage}
               isLoading={isLoading}

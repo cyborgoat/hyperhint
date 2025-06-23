@@ -1,6 +1,5 @@
-from typing import List, Optional
-import os
 from pathlib import Path
+from typing import List, Optional
 
 from hyperhint.memory._types import Memory, Suggestion
 
