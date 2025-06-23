@@ -7,6 +7,7 @@
 import asyncio
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
+import os
 
 try:
     from ollama import AsyncClient, Client
@@ -83,15 +84,28 @@ class OllamaService:
     def list_models(self) -> List[str]:
         """List available Ollama models"""
         if not self.client:
-            return ["llama3.2", "llama3.1", "codellama"]
+            # Get fallback models from environment variable
+            fallback_models = os.getenv("OLLAMA_FALLBACK_MODELS", "")
+            if fallback_models:
+                return [model.strip() for model in fallback_models.split(",") if model.strip()]
+            else:
+                return []  # Return empty list instead of hardcoded defaults
             
         try:
-            models = self.client.list()
+            models_response = self.client.list()
             # The ollama client returns Model objects with .model attribute
-            return [model.model for model in models.models]
+            try:
+                return [model.model for model in models_response.models]  # type: ignore
+            except AttributeError:
+                return []
         except Exception as e:
             print(f"Error listing Ollama models: {e}")
-            return ["llama3.2", "llama3.1", "codellama"]
+            # Get fallback models from environment variable
+            fallback_models = os.getenv("OLLAMA_FALLBACK_MODELS", "")
+            if fallback_models:
+                return [model.strip() for model in fallback_models.split(",") if model.strip()]
+            else:
+                return []  # Return empty list instead of hardcoded defaults
     
     def is_available(self) -> bool:
         """Check if Ollama service is available"""

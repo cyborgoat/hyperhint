@@ -126,7 +126,7 @@ class LLMManager:
                     clean_name = model.split(':')[0]
                     result["all_models"].append({
                         "id": model,
-                        "name": self._format_model_name(model),
+                        "name": model,  # Use original model ID instead of formatting
                         "provider": "Ollama",
                         "service": "ollama",
                         "available": True,
@@ -147,7 +147,7 @@ class LLMManager:
                 for model in openai_models:
                     result["all_models"].append({
                         "id": model,
-                        "name": self._format_model_name(model),
+                        "name": model,  # Use original model ID instead of formatting
                         "provider": "OpenAI",
                         "service": "openai", 
                         "available": True,
@@ -158,50 +158,7 @@ class LLMManager:
         
         return result
     
-    def _format_model_name(self, model_id: str) -> str:
-        """Format model ID into a human-readable name"""
-        # Remove version tags
-        clean_id = model_id.split(':')[0]
-        
-        # Format common models
-        name_mapping = {
-            "llama3.2": "Llama 3.2",
-            "llama3.1": "Llama 3.1", 
-            "llama2": "Llama 2",
-            "codellama": "Code Llama",
-            "mistral": "Mistral",
-            "phi": "Phi",
-            "gemma": "Gemma",
-            "gemma3": "Gemma 3",
-            "deepseek": "DeepSeek",
-            "deepseek-r1": "DeepSeek R1",
-            "qwen": "Qwen",
-            "qwen3": "Qwen 3",
-            "gpt-3.5-turbo": "GPT-3.5 Turbo",
-            "gpt-4": "GPT-4",
-            "gpt-4-turbo": "GPT-4 Turbo",
-            "gpt-4o": "GPT-4o",
-            "claude-3-sonnet": "Claude 3 Sonnet",
-            "claude-3-haiku": "Claude 3 Haiku",
-            "claude-4-sonnet": "Claude 4 Sonnet"
-        }
-        
-        # Check for exact match first
-        if clean_id in name_mapping:
-            return name_mapping[clean_id]
-        
-        # Check for partial matches
-        for key, value in name_mapping.items():
-            if key in clean_id:
-                # Add size info if present
-                if ':' in model_id:
-                    size_info = model_id.split(':')[1]
-                    if size_info != "latest":
-                        return f"{value} ({size_info})"
-                return value
-        
-        # Fallback to formatted version of the ID
-        return clean_id.replace('-', ' ').replace('_', ' ').title()
+
     
     def is_model_available(self, model: str) -> bool:
         """Check if a specific model is available"""

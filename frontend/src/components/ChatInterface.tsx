@@ -24,19 +24,25 @@ interface Message {
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isActionActive, setIsActionActive] = useState(false);
   const [selectedModel, setSelectedModel] = useState("llama3.2");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const currentStreamRef = useRef<{ eventSource?: EventSource; streamId?: string } | null>(null);
 
   const handleSendMessage = async (
     content: string,
-    attachments?: Array<{ type: "file" | "image"; name: string; url?: string }>
+    attachments?: Array<{ type: "file" | "image"; name: string; url?: string }>,
+    selectedAction?: string,
+    options?: { knowledgeFilename?: string }
   ) => {
-    if (!content.trim() && (!attachments || attachments.length === 0)) return;
+    setIsActionActive(!!selectedAction);
+
+    // Allow sending if there's content, attachments, or a selected action
+    if (!content.trim() && (!attachments || attachments.length === 0) && !selectedAction) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content,
+      content: content,
       role: "user",
       timestamp: new Date(),
       attachments,
@@ -60,6 +66,37 @@ export default function ChatInterface() {
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
+      // Prepare attachments with file content for backend
+      const processedAttachments = await Promise.all(
+        (attachments || []).map(async (attachment) => {
+          if (attachment.type === 'file' && attachment.url) {
+            try {
+              // Fetch file content if it's an uploaded file
+              const response = await fetch(attachment.url);
+              const content = await response.text();
+              return {
+                type: attachment.type,
+                name: attachment.name,
+                content: content,
+                size: content.length
+              };
+            } catch (error) {
+              console.error('Error reading file content:', error);
+              return {
+                type: attachment.type,
+                name: attachment.name,
+                content: '',
+                size: 0
+              };
+            }
+          }
+          return {
+            type: attachment.type,
+            name: attachment.name,
+          };
+        })
+      );
+
       // Connect to SSE endpoint
       const response = await fetch("http://localhost:8000/api/chat/stream", {
         method: "POST",
@@ -68,9 +105,11 @@ export default function ChatInterface() {
         },
         body: JSON.stringify({
           message: content,
-          attachments: attachments || [],
+          attachments: processedAttachments,
           model: selectedModel,
           stream_id: streamId,
+          selected_action: selectedAction,
+          knowledge_filename: options?.knowledgeFilename,
         }),
       });
 
@@ -110,9 +149,36 @@ export default function ChatInterface() {
                   console.log('Stream started:', data.timestamp);
                   break;
                   
+                case 'action_start':
+                  console.log('Action started:', data.action, data.timestamp);
+                  // Show action execution indicator
+                  assistantContent = `🔄 Executing action: ${data.action}...`;
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, content: assistantContent }
+                        : msg
+                    )
+                  );
+                  break;
+                  
+                case 'action_complete':
+                  console.log('Action completed:', data.action, data.result);
+                  setIsActionActive(false); // Reset action state
+                  // Clear the action indicator
+                  assistantContent = "";
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, content: assistantContent }
+                        : msg
+                    )
+                  );
+                  break;
+                  
                 case 'content':
                   // Turn off loading state on first content chunk
-                  if (assistantContent === "") {
+                  if (assistantContent === "" || assistantContent.startsWith("🔄")) {
                     setIsLoading(false);
                   }
                   // Append content to assistant message using text utilities
@@ -129,12 +195,14 @@ export default function ChatInterface() {
                 case 'complete':
                   console.log('Stream completed:', data.timestamp);
                   setIsLoading(false);
+                  setIsActionActive(false); // Also reset here
                   currentStreamRef.current = null;
                   break;
                   
                 case 'cancelled':
                   console.log('Stream cancelled:', data.message);
                   setIsLoading(false);
+                  setIsActionActive(false); // And here
                   currentStreamRef.current = null;
                   // Add system message about cancellation
                   const cancelMessage: Message = {
@@ -149,6 +217,7 @@ export default function ChatInterface() {
                 case 'error':
                   console.error('Stream error:', data.message);
                   setIsLoading(false);
+                  setIsActionActive(false); // And here
                   currentStreamRef.current = null;
                   // Add error message
                   const errorMessage: Message = {
@@ -169,6 +238,7 @@ export default function ChatInterface() {
     } catch (error) {
       console.error('SSE connection error:', error);
       setIsLoading(false);
+      setIsActionActive(false); // And finally, here
       currentStreamRef.current = null;
       
       // Add error message to chat
@@ -383,6 +453,7 @@ export default function ChatInterface() {
             <EnhancedInput
               onSend={handleSendMessage}
               isLoading={isLoading}
+              isActionActive={isActionActive}
               onStop={handleStopGeneration}
             />
           </div>

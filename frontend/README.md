@@ -1,16 +1,19 @@
 # HyperHint Chat Frontend
 
-A Next.js 15 chat application with intelligent autocomplete functionality for files and actions.
+A Next.js 15 chat application with an intelligent, action-driven interface for interacting with LLMs.
 
 *Created by cyborgoat*
 
 ## Features
 
-- 🤖 **LLM Chat Interface**: Clean, modern chat UI ready for integration with Ollama or OpenAI compatible endpoints
-- 📁 **File Autocomplete**: Type `@` to get suggestions for files in your project
-- ⚡ **Action Autocomplete**: Type `/` to get suggestions for available actions (chat, generate-workflow, execute-workflow)
-- 🎨 **Modern UI**: Built with Tailwind CSS and shadcn/ui components
-- ⌨️ **Keyboard Navigation**: Navigate suggestions with arrow keys, select with Enter
+- 🤖 **LLM Chat Interface**: Clean, modern chat UI for seamless interaction with Ollama, OpenAI, and compatible endpoints.
+- 📁 **File Autocomplete & Upload**: Type `@` to reference files or use the menu to upload local text/code files.
+- ⚡ **Action Autocomplete**: Type `/` to get suggestions for available actions like `/add_knowledge`.
+- 🧠 **Interactive Action Prompts**: Actions like `/add_knowledge` dynamically prompt the user for required information, such as a filename.
+- 💡 **AI-Powered Suggestions**: Includes an "AI" button to generate filenames based on file content.
+- 🔒 **File Validation**: Enforces client-side validation for file types (text/code only) and size (5MB per file, 20MB total).
+- 🎨 **Modern UI**: Built with Tailwind CSS and shadcn/ui components.
+- ⌨️ **Keyboard Navigation**: Navigate suggestions with arrow keys, select with Enter.
 
 ## Getting Started
 
@@ -31,13 +34,9 @@ A Next.js 15 chat application with intelligent autocomplete functionality for fi
 
 ### Autocomplete Features
 
-- **File Suggestions**: Type `@` followed by a filename to get suggestions
-  - Example: `@README` will show README.md and other matching files
-  - Files are fetched from the `/api/files` endpoint
-
-- **Action Suggestions**: Type `/` followed by an action to get suggestions
-  - Available actions: `chat`, `generate-workflow`, `execute-workflow`
-  - Actions are fetched from the `/api/actions` endpoint
+- **File Suggestions**: Type `@` followed by a filename to get suggestions for files in the knowledge base.
+- **Action Suggestions**: Type `/` to access actions.
+  - Using `/add_knowledge` with attachments will trigger a prompt to name the knowledge file.
 
 ### Keyboard Shortcuts
 
@@ -48,16 +47,11 @@ A Next.js 15 chat application with intelligent autocomplete functionality for fi
 
 ## API Integration
 
-The app is designed to work with a FastAPI backend. Currently, it uses mock API routes:
-
-- `GET /api/files?q=query` - Returns file suggestions
-- `GET /api/actions?q=query` - Returns action suggestions
-
-To integrate with your FastAPI server, update the `fetchSuggestions` function in `src/components/AutocompleteInput.tsx` to point to your backend endpoints.
-
-## LLM Integration
-
-The chat interface is ready for LLM integration. Update the `handleSendMessage` function in `src/components/ChatInterface.tsx` to connect to your Ollama or OpenAI compatible endpoint.
+The app connects to the HyperHint FastAPI backend for all its functionality:
+- `GET /api/files?q=query` - Fetches file suggestions.
+- `GET /api/actions?q=query` - Fetches action suggestions.
+- `POST /api/generate-filename` - Gets an AI-suggested filename based on content.
+- All chat and action execution is handled through the backend's SSE streaming endpoint.
 
 ## Tech Stack
 
@@ -72,20 +66,17 @@ The chat interface is ready for LLM integration. Update the `handleSendMessage` 
 ```
 src/
 ├── app/
-│   ├── api/          # API routes (mock endpoints)
+│   ├── api/          # API proxy routes to the backend
 │   ├── globals.css   # Global styles
 │   └── page.tsx      # Main page
 ├── components/
 │   ├── ui/           # shadcn/ui components
-│   ├── AutocompleteInput.tsx  # Input with autocomplete
+│   ├── EnhancedInput.tsx  # Input with autocomplete and action handling
 │   └── ChatInterface.tsx      # Main chat component
 └── lib/
-    └── utils.ts      # Utility functions
+    └── textUtils.ts  # Text processing utilities
 ```
 
 ## Customization
 
 - **Add more file types**: Update the mock data in `/api/files/route.ts`
-- **Add more actions**: Update the mock data in `/api/actions/route.ts`
-- **Customize styling**: Modify Tailwind classes or update `globals.css`
-- **Add new features**: Extend the components in the `src/components/` directory

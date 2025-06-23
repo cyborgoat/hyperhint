@@ -1,17 +1,20 @@
 # HyperHint Backend
 
-A FastAPI-based backend server providing real-time file and action suggestions with WebSocket support.
+A FastAPI-based backend server providing multi-LLM chat streaming, real-time suggestions, and an intelligent, action-driven architecture.
 
 *Created by cyborgoat*
 
 ## Features
 
-- 🔍 **File System Scanning**: Automatically scans and indexes files and folders
-- 🚀 **Real-time Suggestions**: WebSocket-based real-time autocompletion
-- 📝 **Action Management**: Predefined actions with search capabilities
-- 🔌 **REST API**: HTTP endpoints for file and action queries
-- 💾 **Memory Management**: Short-term (files) and long-term (actions) memory systems
-- 🔄 **Auto-refresh**: Dynamic file system monitoring
+- 🚀 **Multi-LLM Integration**: Supports Ollama, OpenAI, and any OpenAI-compatible endpoints, all configurable via environment variables.
+- ⚡ **Action-Driven System**: Extensible actions like `/add_knowledge` orchestrate complex workflows involving LLMs and file system operations.
+- 🧠 **AI-Powered Services**: Includes endpoints for on-the-fly filename generation from file content.
+- 💾 **Intelligent Memory**:
+    - **Short-Term Memory**: Manages a knowledge base of text and code files in the `data/memory/short_term` directory.
+    - **Long-Term Memory**: Defines the available actions and their capabilities.
+- 🔄 **Real-time Engine**:
+    - **Server-Sent Events (SSE)**: For streaming LLM responses and action-related events.
+    - **WebSockets**: For providing real-time file and action suggestions as the user types.
 
 ## Architecture
 
@@ -33,116 +36,52 @@ backend/
 
 ## Installation
 
-1. Install dependencies using uv (recommended) or pip:
-
+1. Create a virtual environment and install dependencies:
 ```bash
 # Using uv (recommended)
+uv venv
 uv sync
 
 # Or using pip
+python -m venv .venv
 pip install -e .
 ```
+2.  Set up your environment variables by copying `.env.example` to `.env` and configuring your models.
 
 ## Usage
 
 ### Development Server
-
 ```bash
-# Quick start
 python start.py
-
-# Or using uvicorn directly
-uvicorn hyperhint.main:app --reload --host 0.0.0.0 --port 8000
 ```
+The server will run on `http://localhost:8000`.
 
 ### API Endpoints
 
-- `GET /` - Root endpoint with API information
-- `GET /health` - Health check
-- `GET /api/files?q=<query>` - Search files
-- `GET /api/actions?q=<query>` - Search actions
-- `GET /api/stats` - Memory statistics
-- `POST /api/refresh` - Refresh file system scan
+-   `POST /api/chat/stream`: The main endpoint for handling chat messages and executing actions via an SSE stream.
+-   `POST /api/generate-filename`: Generates a descriptive filename from file content previews.
+-   `GET /api/files?q=<query>`: Searches for files in the short-term memory.
+-   `GET /api/actions?q=<query>`: Searches for available actions.
+-   `GET /api/models`: Lists all available LLM models and their status.
+-   `GET /health`: A simple health check endpoint.
 
-### WebSocket Endpoints
+### WebSocket Endpoint
 
-- `ws://localhost:8000/ws/suggestions` - Real-time suggestions
-
-### SSE (Server-Sent Events) Endpoints
-
-- `POST /api/chat/stream` - Streaming chat responses
-- `POST /api/chat/stop` - Stop streaming chat
-- `GET /api/chat/status` - Get streaming status
-
-### WebSocket Usage Examples
-
-#### File Suggestions
-```javascript
-const ws = new WebSocket('ws://localhost:8000/ws/suggestions');
-ws.send(JSON.stringify({
-  type: 'files',
-  query: 'readme'
-}));
-```
-
-#### Action Suggestions
-```javascript
-const ws = new WebSocket('ws://localhost:8000/ws/suggestions');
-ws.send(JSON.stringify({
-  type: 'actions',
-  query: 'create'
-}));
-```
-
-### SSE Usage Examples
-
-#### Streaming Chat
-```javascript
-fetch('/api/chat/stream', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    message: 'Hello, how can you help me?',
-    model: 'claude-4-sonnet',
-    stream_id: 'unique-stream-id'
-  })
-}).then(response => {
-  const reader = response.body.getReader();
-  // Process streaming data
-});
-```
+-   `ws://localhost:8000/ws/suggestions`: Provides real-time file and action suggestions.
 
 ## Memory Systems
 
 ### Short-term Memory (Files)
-- Automatically scans current working directory
-- Supports files and folders
-- Recursive scanning with depth limit
-- File type detection (images, documents, etc.)
-- Size and metadata tracking
+-   Automatically scans the `data/memory/short_term` directory.
+-   The `/add_knowledge` action saves new text files and AI-powered summaries here.
+-   Files in this directory can be referenced in the chat with the `@` symbol.
 
 ### Long-term Memory (Actions)
-- Predefined action set
-- Category-based organization
-- Tag-based searching
-- Extensible action system
-
-## Default Actions
-
-- `search` - Search through files and content
-- `create` - Create a new file or folder
-- `edit` - Edit an existing file
-- `delete` - Delete a file or folder
-- `copy` - Copy files or folders
-- `move` - Move or rename files
-- `analyze` - Analyze file content or structure
-- `summarize` - Summarize file content
-- `translate` - Translate text content
-- `format` - Format code or text
+-   Defines the core capabilities of the assistant.
+-   Currently focused on the `/add_knowledge` action but is designed to be easily extended.
 
 ## Environment Variables
-
-- `BACKEND_URL` - Backend URL for frontend integration (default: http://localhost:8000)
+The backend is configured through a `.env` file. Key variables include `DEFAULT_MODEL`, `OLLAMA_HOST`, `OPENAI_API_KEY`, and model lists like `OPENAI_MODELS`. See the main project `README.md` for full details.
 
 ## Development
 

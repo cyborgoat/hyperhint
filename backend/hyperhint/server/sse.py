@@ -21,7 +21,8 @@ async def generate_chat_stream(
     attachments: list = None, 
     model: str = None,
     stream_id: str = None,
-    selected_action: str = None
+    selected_action: str = None,
+    knowledge_filename: str = None
 ) -> AsyncGenerator[str, None]:
     """Generate streaming chat response using real LLM services"""
     
@@ -34,48 +35,62 @@ async def generate_chat_stream(
             # Send action execution start event
             yield f"data: {json.dumps({'type': 'action_start', 'action': selected_action, 'timestamp': datetime.now().isoformat()})}\n\n"
             
-            # Execute the action with attachments
-            action_result = long_term_memory.execute_action(selected_action, message, attachments=attachments)
+            # Prepare user input with attachments if present (same as routes.py)
+            full_input = message
+            if attachments:
+                attachment_contents = []
+                for att in attachments:
+                    att_name = att.get('name', 'unknown')
+                    att_content = att.get('content')
+                    att_size = att.get('size')
+                    
+                    if att_content:
+                        size_info = f" ({att_size} bytes)" if att_size else ""
+                        attachment_contents.append(f"File: {att_name}{size_info}\n{'-' * 40}\n{att_content}\n{'-' * 40}")
+                
+                if attachment_contents:
+                    full_input += f"\n\nAttached Files:\n{'=' * 50}\n" + "\n\n".join(attachment_contents) + f"\n{'=' * 50}"
+            
+            # Execute the action with processed input (consistent with routes.py)
+            action_result = long_term_memory.execute_action(
+                selected_action, 
+                full_input, 
+                attachments=attachments,
+                knowledge_filename=knowledge_filename
+            )
             
             # Send action completion event
             yield f"data: {json.dumps({'type': 'action_complete', 'action': selected_action, 'result': action_result, 'timestamp': datetime.now().isoformat()})}\n\n"
             
-            # For add_knowledge, create a smart summary without LLM
+            # For add_knowledge, use LLM to summarize and generate filename
             if selected_action == "add_knowledge":
                 if action_result.get("status") == "success":
-                    # Create brief summary based on content
-                    if attachments:
-                        filename = action_result.get("filename", "unknown")
-                        file_count = len([att for att in attachments if att.get('type') == 'file'])
-                        
-                        # Brief summary for file uploads
-                        if file_count == 1:
-                            summary_content = f"📄 **File saved as {filename}**\n\n💡 You can reference it using @{filename}"
-                        else:
-                            summary_content = f"📄 **{file_count} files combined and saved as {filename}**\n\n💡 You can reference it using @{filename}"
-                        
-                        # Send the summary as content
-                        yield f"data: {json.dumps({'type': 'content', 'content': summary_content, 'timestamp': datetime.now().isoformat()})}\n\n"
-                    else:
-                        # Brief text note summary
-                        filename = action_result.get("filename", "unknown")
-                        
-                        summary_content = f"📝 **File saved as {filename}**\n\n💡 You can reference it using @{filename}"
-                        
-                        yield f"data: {json.dumps({'type': 'content', 'content': summary_content, 'timestamp': datetime.now().isoformat()})}\n\n"
+                    filename = action_result.get("filename", "unknown")
                     
-                    # Send completion
-                    yield f"data: {json.dumps({'type': 'complete', 'timestamp': datetime.now().isoformat()})}\n\n"
+                    if attachments:
+                        file_count = len([att for att in attachments if att.get('type') == 'file'])
+                        summary_prompt = f"""The user just uploaded {file_count} file(s) and saved them as '{filename}'. Briefly confirm that the files have been saved and analyzed. Mention they can be referenced with @{filename}. Keep the response to 1-2 sentences."""
+                    else:
+                        summary_prompt = f"""The user just saved a text note as '{filename}'. Briefly confirm that the note has been saved and analyzed. Mention it can be referenced with @{filename}. Keep the response to 1-2 sentences."""
+                    
+                    messages = [{"role": "user", "content": summary_prompt}]
+                    async for chunk in llm_manager.stream_chat(messages, model, stream_id):
+                        if stream_id and not active_streams.get(stream_id, True):
+                            yield f"data: {json.dumps({'type': 'cancelled', 'message': 'Generation stopped by user.'})}\n\n"
+                            break
+                        
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                        await asyncio.sleep(0.01)
+                    
                     return
                 else:
-                    # Action failed, just send completion
                     yield f"data: {json.dumps({'type': 'complete', 'timestamp': datetime.now().isoformat()})}\n\n"
                     return
             
             # For other actions, generate a brief summary
             summary_prompt = f"""Action "{selected_action}" completed. Result: {action_result.get("message", "Done")}. Be brief."""
             messages = [{"role": "user", "content": summary_prompt}]
-            
+        
         else:
             # Normal chat flow - prepare messages for LLM
             messages = [{"role": "user", "content": message}]
@@ -150,14 +165,15 @@ async def stream_chat(request: Request):
         attachments = body.get("attachments", [])
         model = body.get("model", "claude-4-sonnet")
         stream_id = body.get("stream_id", f"stream_{datetime.now().timestamp()}")
-        selected_action = body.get("selected_action")  # New parameter for action execution
+        selected_action = body.get("selected_action")
+        knowledge_filename = body.get("knowledge_filename")
         
         # Track this stream
         active_streams[stream_id] = True
         
         # Return streaming response
         return StreamingResponse(
-            generate_chat_stream(message, attachments, model, stream_id, selected_action),
+            generate_chat_stream(message, attachments, model, stream_id, selected_action, knowledge_filename),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",

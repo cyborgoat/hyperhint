@@ -1,10 +1,42 @@
-
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from hyperhint.llm import llm_manager
 from hyperhint.memory import long_term_memory, short_term_memory
 
 router = APIRouter()
+
+
+class FilenameRequest(BaseModel):
+    previews: str
+
+
+@router.post("/generate-filename")
+async def generate_filename(request: FilenameRequest):
+    """Generate a filename from content previews using an LLM"""
+    prompt = f"""Based on the following file previews, generate a single, short, descriptive, snake_case filename.
+The filename should not include an extension.
+Return ONLY the filename and nothing else. Be concise.
+
+Previews:
+{request.previews}
+"""
+    messages = [{"role": "user", "content": prompt}]
+    
+    filename_content = ""
+    async for chunk in llm_manager.stream_chat(messages):
+        if chunk.get("type") == "content":
+            filename_content += chunk.get("content", "")
+            
+    import re
+    filename = filename_content.strip().lower().replace(' ', '_')
+    filename = re.sub(r'[^a-z0-9_]', '', filename)
+    filename = re.sub(r'__+', '_', filename)
+    
+    if not filename:
+        filename = "knowledge_file"
+        
+    return {"filename": filename}
 
 
 @router.get("/files")

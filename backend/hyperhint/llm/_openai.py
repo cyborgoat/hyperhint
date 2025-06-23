@@ -5,6 +5,7 @@
 # Return the response
 
 import asyncio
+import os
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -90,13 +91,23 @@ class OpenAIService:
             }
 
     def list_models(self) -> List[str]:
-        """List available models"""
+        """List available models from environment configuration"""
         if self.base_url:
-            # For compatible endpoints, return common models
-            return ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "claude-3-sonnet"]
+            # For compatible endpoints, get models from environment variable
+            custom_models = os.getenv("CUSTOM_OPENAI_MODELS", "")
+            if custom_models:
+                return [model.strip() for model in custom_models.split(",") if model.strip()]
+            else:
+                # Fallback: return empty list to indicate models should be fetched dynamically
+                return []
         else:
-            # For official OpenAI
-            return ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o"]
+            # For official OpenAI, get models from environment variable
+            openai_models = os.getenv("OPENAI_MODELS", "")
+            if openai_models:
+                return [model.strip() for model in openai_models.split(",") if model.strip()]
+            else:
+                # Fallback: return empty list to indicate models should be fetched dynamically
+                return []
 
     def is_available(self) -> bool:
         """Check if OpenAI service is available"""

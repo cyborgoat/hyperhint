@@ -1,6 +1,6 @@
 # HyperHint 🚀
 
-> An intelligent AI-powered chat interface with real-time file suggestions and markdown rendering
+An intelligent, action-driven AI chat interface with a multi-LLM backend, real-time suggestions, and a powerful knowledge management system.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Next.js](https://img.shields.io/badge/Next.js-15.3.4-black)](https://nextjs.org/)
@@ -10,18 +10,20 @@
 
 ## 🌟 Overview
 
-HyperHint is a modern, full-stack AI chat application that combines the power of Large Language Models with intelligent file system integration. Built with Next.js 15 and FastAPI, it provides a seamless chat experience with real-time file suggestions, markdown rendering, and multi-model LLM support.
+HyperHint is a modern, full-stack AI chat application that combines the power of Large Language Models with an intelligent, action-driven workflow. Built with Next.js 15 and FastAPI, it provides a seamless chat experience where users can not only talk to an AI but also command it to perform complex tasks like analyzing and saving files to a persistent knowledge base.
 
 ### ✨ Key Features
 
-- 🤖 **Multi-LLM Support**: Ollama, OpenAI, and OpenAI-compatible endpoints
-- 📁 **Smart File Integration**: Real-time file suggestions with `@` trigger
-- ⚡ **Action System**: Quick actions with `/` trigger
-- 🎨 **Rich Markdown Rendering**: Full markdown support with syntax highlighting
-- 🔄 **Real-time Streaming**: Server-Sent Events for smooth chat experience
-- 🎯 **Intelligent Memory**: Short-term (files) and long-term (actions) memory systems
-- 🌙 **Modern UI**: Beautiful interface with Tailwind CSS and shadcn/ui
-- 🔌 **Environment-based Config**: Easy deployment with environment variables
+-   🤖 **Multi-LLM Backend**: Supports Ollama, OpenAI, and any OpenAI-compatible endpoints, all configurable via `.env`.
+-   ⚡ **Action-Driven System**: Use `/` to trigger actions like `/add_knowledge`, which orchestrate multi-step workflows.
+-   🧠 **Interactive Knowledge Base**:
+    -   Use `/add_knowledge` with text or file attachments to build a knowledge base.
+    -   The system prompts for a filename and can even suggest one with AI.
+    -   Saved knowledge is automatically analyzed and summarized by an LLM.
+-   📁 **Smart File Integration**: Reference saved knowledge with `@` for context-aware conversations.
+-   🔒 **File Validation**: Enforces client-side checks for file type (text/code) and size (5MB per file, 20MB total).
+-   🔄 **Real-time Streaming**: Server-Sent Events (SSE) for smooth, token-by-token chat and action responses.
+-   🎨 **Modern UI**: A clean, responsive interface built with Tailwind CSS and shadcn/ui.
 
 ## 🏗️ Architecture
 
@@ -29,30 +31,29 @@ HyperHint is a modern, full-stack AI chat application that combines the power of
 hyperhint/
 ├── frontend/                 # Next.js 15 + TypeScript
 │   ├── src/
-│   │   ├── app/             # App Router pages
-│   │   ├── components/      # React components
+│   │   ├── app/             # App Router pages and API proxies
+│   │   ├── components/      # React components (Chat, Input, etc.)
 │   │   └── lib/             # Utilities and helpers
-│   ├── tailwind.config.js   # Tailwind CSS configuration
 │   └── package.json         # Frontend dependencies
-├── backend/                 # FastAPI + Python
+├── backend/                  # FastAPI + Python
 │   ├── hyperhint/
-│   │   ├── llm/            # LLM integrations (Ollama, OpenAI)
-│   │   ├── memory/         # Memory management systems
-│   │   └── server/         # API routes and SSE handlers
-│   ├── data/memory/        # File system memory storage
-│   ├── pyproject.toml      # Python dependencies
-│   └── .env               # Environment configuration
-└── README.md              # This file
+│   │   ├── llm/             # LLM integrations (Ollama, OpenAI)
+│   │   ├── memory/          # Short-term (files) & long-term (actions) memory
+│   │   └── server/          # API routes, SSE, and WebSocket handlers
+│   ├── data/memory/short_term/ # Knowledge base storage
+│   ├── pyproject.toml       # Python dependencies
+│   └── .env                 # Environment configuration
+└── README.md                 # This file
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Node.js** 18+ and npm
-- **Python** 3.13+
-- **uv** package manager (recommended)
-- **Ollama** (optional, for local LLM)
+-   **Node.js** 18+ and npm
+-   **Python** 3.10+
+-   **uv** package manager (recommended for Python)
+-   **Ollama** (optional, for running local LLMs)
 
 ### 1. Clone the Repository
 
@@ -66,94 +67,64 @@ cd hyperhint
 ```bash
 cd backend
 
-# Create virtual environment with Python 3.13
-uv venv --python 3.13
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-uv pip install -e .
+# Create virtual environment and install dependencies
+uv venv
+uv sync
 
 # Set up environment variables
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your LLM configuration
 ```
 
 ### 3. Frontend Setup
 
 ```bash
 cd ../frontend
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
 ```
 
-### 4. Start Backend Server
+### 4. Run Both Servers
 
-```bash
-cd ../backend
-source .venv/bin/activate
-python -m hyperhint.main
-```
+-   **Start Backend**: In the `backend` directory, run:
+    ```bash
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+    python start.py
+    ```
+-   **Start Frontend**: In a separate terminal, from the `frontend` directory, run:
+    ```bash
+    npm run dev
+    ```
 
 ### 5. Access the Application
 
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
+-   **Frontend**: `http://localhost:3000`
+-   **Backend API Docs**: `http://localhost:8000/docs`
 
 ## 🔧 Configuration
 
-### Environment Variables
+All backend configuration is managed in the `backend/.env` file. This is where you set your default model and provide API keys and URLs for any LLM services you want to use.
 
-Create a `.env` file in the `backend/` directory:
+### Model Configuration
 
-```env
-# Default LLM Model
-DEFAULT_MODEL=llama3.2
-
-# Ollama Configuration
-OLLAMA_HOST=http://localhost:11434
-
-# OpenAI Configuration (optional)
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_BASE_URL=https://api.openai.com/v1
-
-# Custom OpenAI-compatible endpoint (optional)
-CUSTOM_OPENAI_API_KEY=your-custom-api-key
-CUSTOM_OPENAI_BASE_URL=https://your-custom-endpoint.com/v1
-```
-
-### Supported Models
-
-- **Ollama**: llama3.2, gemma3, deepseek-r1, qwen3, etc.
-- **OpenAI**: gpt-4, gpt-4-turbo, gpt-3.5-turbo
-- **Claude**: claude-3-sonnet, claude-3-haiku (via OpenAI-compatible endpoints)
+-   **`DEFAULT_MODEL`**: The model to use for chats and actions.
+-   **`OLLAMA_HOST`**: URL for your local Ollama instance.
+-   **`OPENAI_API_KEY` / `OPENAI_BASE_URL`**: Credentials for the official OpenAI API.
+-   **`OPENAI_MODELS`**: A comma-separated list of models to make available from OpenAI (e.g., `gpt-4,gpt-3.5-turbo`).
+-   See the `.env.example` file for more options, including custom OpenAI-compatible endpoints.
 
 ## 💡 Usage
 
-### Chat Interface
-
-1. **Basic Chat**: Type your message and press Enter
-2. **File References**: Use `@` to reference files from your project
-3. **Quick Actions**: Use `/` to access predefined actions
-4. **Model Selection**: Click the model selector to switch between available models
-
-### File Integration
-
-- **Auto-detection**: Files are automatically scanned from `data/memory/short_term/`
-- **Content Reading**: Referenced files are read and included in the chat context
-- **Real-time Updates**: File suggestions update as you type
-
-### Action System
-
-Available actions:
-- `/chat` - General conversation
-- `/analyze` - Analyze file content or code
-- `/format` - Format code or text
-- `/add_knowledge` - Add content to knowledge base
+1.  **Start a Chat**: Type a message and press Enter.
+2.  **Add to Knowledge Base**:
+    -   Attach one or more text/code files.
+    -   Type `/add_knowledge` in the input field.
+    -   Click "Send."
+    -   A dialog will appear prompting you for a filename. You can type one yourself or click the "AI" button to have one generated for you.
+    -   Confirm the filename to save the files. The assistant will provide a brief summary.
+3.  **Reference Knowledge**:
+    -   In a new chat, type `@` and the name of the file you just saved.
+    -   Ask a question about its content (e.g., `@my_project_summary.txt what is the main goal of this project?`).
+4.  **Switch Models**: Use the model selector dropdown to change the active LLM at any time.
 
 ## 🎨 Features in Detail
 
