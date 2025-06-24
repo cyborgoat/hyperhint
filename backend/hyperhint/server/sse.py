@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 
 # Import the LLM manager and memory
 from hyperhint.llm import llm_manager
-from hyperhint.memory import short_term_memory
+from hyperhint.memory import knowledge_file_handler
 
 sse_router = APIRouter()
 
@@ -30,7 +30,7 @@ async def generate_chat_stream(
         # Check if an action should be executed first
         if selected_action:
             # Import here to avoid circular imports
-            from hyperhint.memory import long_term_memory
+            from hyperhint.memory import action_handler
 
             # Send action execution start event
             yield f"data: {json.dumps({'type': 'action_start', 'action': selected_action, 'timestamp': datetime.now().isoformat()})}\n\n"
@@ -52,7 +52,7 @@ async def generate_chat_stream(
                     full_input += f"\n\nAttached Files:\n{'=' * 50}\n" + "\n\n".join(attachment_contents) + f"\n{'=' * 50}"
             
             # Execute the action with processed input (consistent with routes.py)
-            action_result = long_term_memory.execute_action(
+            action_result = action_handler.execute_action(
                 selected_action, 
                 full_input, 
                 attachments=attachments,
@@ -111,9 +111,9 @@ async def generate_chat_stream(
                             attachment_contents.append(f"File: {att_name}{size_info}\n{'-' * 40}\n{att_content}\n{'-' * 40}")
                         else:
                             # Try to read file content from memory as fallback
-                            memory_item = short_term_memory.find_by_name(att_name)
+                            memory_item = knowledge_file_handler.find_by_name(att_name)
                             if memory_item and memory_item.file_path:
-                                file_content = short_term_memory.read_file_content(memory_item.file_path)
+                                file_content = knowledge_file_handler.read_file_content(memory_item.file_path)
                                 if file_content:
                                     attachment_contents.append(f"File: {att_name} (from memory)\n{'-' * 40}\n{file_content}\n{'-' * 40}")
                                 else:

@@ -193,4 +193,4 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-data/memory/short_term/
+data/memory/knowledge_files/

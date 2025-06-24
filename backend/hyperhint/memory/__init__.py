@@ -1,9 +1,17 @@
-from ._long_term import LongTermMem
-from ._short_term import ShortTermMem
+from ._actions import ActionHandler
+from ._knowledge_files import KnowledgeFileHandler
 from ._types import Action, Memory, Suggestion
 
 # Create global instances
-short_term_memory = ShortTermMem()
-long_term_memory = LongTermMem()
+knowledge_file_handler = KnowledgeFileHandler()
+action_handler = ActionHandler()
 
-__all__ = ["Memory", "Action", "Suggestion", "ShortTermMem", "LongTermMem", "short_term_memory", "long_term_memory"]
+__all__ = [
+    "Memory",
+    "Action",
+    "Suggestion",
+    "KnowledgeFileHandler",
+    "ActionHandler",
+    "knowledge_file_handler",
+    "action_handler",
+]

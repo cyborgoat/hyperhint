@@ -3,14 +3,14 @@ from typing import List
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from hyperhint.memory._long_term import LongTermMem
-from hyperhint.memory._short_term import ShortTermMem
+from hyperhint.memory._actions import ActionHandler
+from hyperhint.memory._knowledge_files import KnowledgeFileHandler
 
 websocket_router = APIRouter()
 
 # Initialize memory instances
-short_term_memory = ShortTermMem()
-long_term_memory = LongTermMem()
+knowledge_file_handler = KnowledgeFileHandler()
+action_handler = ActionHandler()
 
 # Store active WebSocket connections
 active_connections: List[WebSocket] = []
@@ -46,14 +46,14 @@ async def websocket_suggestions(websocket: WebSocket):
         while True:
             # Receive message from client
             data = await websocket.receive_text()
-            
+
             try:
                 message = json.loads(data)
                 query_type = message.get("type")  # "files" or "actions"
                 query = message.get("query", "")
-                
+
                 if query_type == "files":
-                    suggestions = short_term_memory.search(query)
+                    suggestions = knowledge_file_handler.search(query)
                     response = {
                         "type": "files",
                         "query": query,
@@ -62,13 +62,13 @@ async def websocket_suggestions(websocket: WebSocket):
                                 "id": suggestion.id,
                                 "label": suggestion.label,
                                 "description": suggestion.description,
-                                "metadata": suggestion.metadata
+                                "metadata": suggestion.metadata,
                             }
                             for suggestion in suggestions
-                        ]
+                        ],
                     }
                 elif query_type == "actions":
-                    suggestions = long_term_memory.search(query)
+                    suggestions = action_handler.search(query)
                     response = {
                         "type": "actions",
                         "query": query,
@@ -77,31 +77,29 @@ async def websocket_suggestions(websocket: WebSocket):
                                 "id": suggestion.id,
                                 "label": suggestion.label,
                                 "description": suggestion.description,
-                                "metadata": suggestion.metadata
+                                "metadata": suggestion.metadata,
                             }
                             for suggestion in suggestions
-                        ]
+                        ],
                     }
                 else:
                     response = {
                         "type": "error",
-                        "message": "Invalid query type. Use 'files' or 'actions'"
+                        "message": "Invalid query type. Use 'files' or 'actions'",
                     }
-                
+
                 await manager.send_personal_message(json.dumps(response), websocket)
-                
+
             except json.JSONDecodeError:
-                error_response = {
-                    "type": "error",
-                    "message": "Invalid JSON format"
-                }
-                await manager.send_personal_message(json.dumps(error_response), websocket)
+                error_response = {"type": "error", "message": "Invalid JSON format"}
+                await manager.send_personal_message(
+                    json.dumps(error_response), websocket
+                )
             except Exception as e:
-                error_response = {
-                    "type": "error",
-                    "message": f"Server error: {str(e)}"
-                }
-                await manager.send_personal_message(json.dumps(error_response), websocket)
-                
+                error_response = {"type": "error", "message": f"Server error: {str(e)}"}
+                await manager.send_personal_message(
+                    json.dumps(error_response), websocket
+                )
+
     except WebSocketDisconnect:
-        manager.disconnect(websocket) 
+        manager.disconnect(websocket)
