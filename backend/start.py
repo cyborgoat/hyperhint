@@ -20,10 +20,13 @@ if __name__ == "__main__":
     print("   - Chat: ws://localhost:8000/ws/chat")
     print("\n" + "="*50 + "\n")
     
+    # Determine if running as a PyInstaller bundled executable
+    is_frozen = getattr(sys, 'frozen', False)
+    
     uvicorn.run(
         "hyperhint.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
+        reload=not is_frozen,  # Set reload to False if frozen (PyInstaller executable)
         log_level="info"
     ) 
