@@ -6,7 +6,10 @@ A Next.js 15 chat application with an intelligent, action-driven interface for i
 
 ## Features
 
-- 🤖 **LLM Chat Interface**: Clean, modern chat UI for seamless interaction with Ollama, OpenAI, and compatible endpoints.
+- 🤖 **LLM Chat Interface**: Clean, modern chat UI for seamless interaction with Ollama, OpenAI, and compatible endpoints, with a comprehensive model selection and configuration interface.
+- 📁 **Knowledge Management Sidebar**: A dedicated left-side drawer for viewing system status and managing knowledge files.
+    -   **System Status**: Real-time memory and LLM service status updates.
+    -   **Knowledge Files**: Collapsible tree view with file type icons, sizes, and a file content viewer with syntax highlighting.
 - 📁 **File Autocomplete & Upload**: Type `@` to reference files or use the menu to upload local text/code files.
 - ⚡ **Action Autocomplete**: Type `/` to get suggestions for available actions like `/add_knowledge`.
 - 🧠 **Interactive Action Prompts**: Actions like `/add_knowledge` dynamically prompt the user for required information, such as a filename.

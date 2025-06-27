@@ -6,7 +6,10 @@ A FastAPI-based backend server providing multi-LLM chat streaming, real-time sug
 
 ## Features
 
-- 🚀 **Multi-LLM Integration**: Supports Ollama, OpenAI, and any OpenAI-compatible endpoints, all configurable via environment variables.
+- 🚀 **Configurable LLM Services**: Supports Ollama, OpenAI, and any OpenAI-compatible endpoints.
+    -   **Ollama**: Automatically discovers and lists models.
+    -   **OpenAI & Compatible Endpoints**: Requires explicit model configuration.
+    -   **Service Management**: Endpoints to add, remove, and test LLM services, ensuring a "clean slate" approach with no default assumptions.
 - ⚡ **Action-Driven System**: Extensible actions like `/add_knowledge` orchestrate complex workflows involving LLMs and file system operations.
 - 🧠 **AI-Powered Services**: Includes endpoints for on-the-fly filename generation from file content.
 - 💾 **Intelligent Memory**:

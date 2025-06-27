@@ -22,7 +22,8 @@ export default function MarkdownMessage({ content, className = "" }: MarkdownMes
         rehypePlugins={[rehypeHighlight, rehypeRaw]}
         components={{
           // Custom styling for code blocks
-          code({ node, inline, className, children, ...props }) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+          code({ node, inline, className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || '');
             return !inline && match ? (
               <code className={`${className} block bg-muted p-4 rounded-lg overflow-x-auto text-sm`} {...props}>

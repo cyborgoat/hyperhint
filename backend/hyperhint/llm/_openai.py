@@ -10,9 +10,10 @@ from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 try:
-    from openai import AsyncOpenAI
+    from openai import AsyncOpenAI, OpenAI
 except ImportError:
     AsyncOpenAI = None
+    OpenAI = None
 
 
 class OpenAIService:
@@ -24,14 +25,17 @@ class OpenAIService:
         self.api_key = api_key
         self.base_url = base_url
         self.client = None
+        self.sync_client = None
 
-        if AsyncOpenAI:
+        if AsyncOpenAI and OpenAI:
             if base_url:
                 # For OpenAI-compatible endpoints (like local LLMs)
                 self.client = AsyncOpenAI(api_key=api_key or "dummy", base_url=base_url)
+                self.sync_client = OpenAI(api_key=api_key or "dummy", base_url=base_url)
             elif api_key:
                 # For official OpenAI API
                 self.client = AsyncOpenAI(api_key=api_key)
+                self.sync_client = OpenAI(api_key=api_key)
 
     async def stream_chat(
         self,
@@ -91,24 +95,52 @@ class OpenAIService:
             }
 
     def list_models(self) -> List[str]:
-        """List available models from environment configuration"""
-        if self.base_url:
-            # For compatible endpoints, get models from environment variable
-            custom_models = os.getenv("CUSTOM_OPENAI_MODELS", "")
-            if custom_models:
-                return [model.strip() for model in custom_models.split(",") if model.strip()]
-            else:
-                # Fallback: return empty list to indicate models should be fetched dynamically
-                return []
-        else:
-            # For official OpenAI, get models from environment variable
-            openai_models = os.getenv("OPENAI_MODELS", "")
-            if openai_models:
-                return [model.strip() for model in openai_models.split(",") if model.strip()]
-            else:
-                # Fallback: return empty list to indicate models should be fetched dynamically
-                return []
+        """List available models - returns empty list as models are configured per service"""
+        # Models are configured per service instance, not globally
+        return []
 
-    def is_available(self) -> bool:
-        """Check if OpenAI service is available"""
-        return self.client is not None
+    def is_available(self, test_model: Optional[str] = None) -> bool:
+        """Check if OpenAI service is available by testing connection with actual model"""
+        if not self.sync_client:
+            return False
+            
+        # If no test model provided, try to list models first
+        if not test_model:
+            try:
+                models = self.sync_client.models.list()
+                if models.data:
+                    # Use the first available model for testing
+                    test_model = models.data[0].id
+                else:
+                    # No models available
+                    return False
+            except Exception:
+                # If models.list() fails, we can't test without a specific model
+                return False
+            
+        try:
+            # Test connection with the actual model that will be used
+            response = self.sync_client.chat.completions.create(
+                model=test_model,
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=1,
+                stream=False
+            )
+            return True
+        except Exception as e:
+            print(f"OpenAI service not available with model '{test_model}': {e}")
+            return False
+
+    def get_available_models(self) -> List[str]:
+        """Get available models from the endpoint if supported"""
+        if not self.sync_client:
+            return []
+            
+        try:
+            # Try to list models (works for OpenAI and some compatible endpoints)
+            models = self.sync_client.models.list()
+            return [model.id for model in models.data]
+        except Exception as e:
+            print(f"Could not list models from endpoint: {e}")
+            # Return empty list - models will be configured manually
+            return []

@@ -14,9 +14,17 @@ HyperHint is a modern, full-stack AI chat application that combines the power of
 
 ### ✨ Key Features
 
--   🤖 **Multi-LLM Backend**: Supports Ollama, OpenAI, and any OpenAI-compatible endpoints, all configurable via `.env`.
+-   🤖 **Configurable LLM Services**:
+    -   **Ollama**: Automatic model discovery and selection.
+    -   **OpenAI & Compatible Endpoints**: Manual configuration with explicit model selection.
+    -   **Flexible Management**: Add, edit, and remove services with real-time connection testing and interruptible scans.
+    -   **Clean Slate Approach**: No default services or models are assumed; users configure everything.
 -   ⚡ **Action-Driven System**: Use `/` to trigger actions like `/add_knowledge`, which orchestrate multi-step workflows.
 -   🧠 **Interactive Knowledge Base**:
+    -   **Dedicated Sidebar**: A collapsible left-side panel for knowledge management.
+    -   **System Status**: Real-time display of memory usage, LLM service status, and action counts.
+    -   **File Management**: Browse knowledge files in a collapsible tree with file type icons and sizes.
+    -   **File Content Viewer**: Click to open files in a popup dialog with syntax highlighting and proper content parsing.
     -   Use `/add_knowledge` with text or file attachments to build a knowledge base.
     -   The system prompts for a filename and can even suggest one with AI.
     -   Saved knowledge is automatically analyzed and summarized by an LLM.

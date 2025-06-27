@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import EnhancedInput from "@/components/EnhancedInput";
 import ModelSelector from "@/components/ModelSelector";
+import KnowledgeSidebar from "@/components/KnowledgeSidebar";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import MarkdownMessage from "@/components/MarkdownMessage";
 import { processMarkdownContent, accumulateStreamingContent } from "@/lib/textUtils";
@@ -302,10 +302,12 @@ export default function ChatInterface() {
     <div className="flex overflow-hidden flex-col h-screen bg-background">
       {/* Header with model selector */}
       <div className="flex-shrink-0 border-b px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center mx-auto max-w-4xl">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold">HyperHint</h1>
-            <Separator orientation="vertical" className="h-5" />
+                  <div className="flex justify-between items-center mx-auto max-w-4xl">
+            <div className="flex items-center space-x-4">
+              <KnowledgeSidebar />
+              <h1 className="text-lg font-semibold">HyperHint</h1>
+            </div>
+            <div className="flex items-center space-x-4">
             <ModelSelector
               selectedModel={selectedModel}
               onModelChange={setSelectedModel}

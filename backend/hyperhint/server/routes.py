@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
+from typing import Dict, Any, List
 
 from hyperhint.llm import llm_manager
 from hyperhint.memory import action_handler, knowledge_file_handler
@@ -9,6 +10,21 @@ router = APIRouter()
 
 class FilenameRequest(BaseModel):
     previews: str
+
+
+class ServiceConfigRequest(BaseModel):
+    service_id: str
+    service_type: str  # "ollama" or "openai"
+    config: Dict[str, Any]
+
+
+class TestServiceRequest(BaseModel):
+    service_type: str  # "ollama" or "openai"
+    config: Dict[str, Any]
+
+
+class SetDefaultModelRequest(BaseModel):
+    model: str
 
 
 @router.post("/generate-filename")
@@ -50,6 +66,21 @@ async def get_file_suggestions(q: str = Query("", description="Search query")):
         raise HTTPException(status_code=500, detail=f"Error searching files: {str(e)}")
 
 
+@router.get("/files/content")
+async def get_file_content(path: str = Query(..., description="File path")):
+    """Get file content by path"""
+    try:
+        content = knowledge_file_handler.read_file_content(path)
+        if content is None:
+            raise HTTPException(status_code=404, detail="File not found")
+        return content
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
+
+
+
+
+
 @router.get("/actions")
 async def get_action_suggestions(q: str = Query("", description="Search query")):
     """Get action suggestions for autocomplete"""
@@ -66,21 +97,34 @@ async def get_action_suggestions(q: str = Query("", description="Search query"))
 async def get_stats():
     """Get system statistics"""
     try:
+        # Get memory stats
+        memory_stats = {
+            "total_items": len(knowledge_file_handler.memory),
+            "files": len([item for item in knowledge_file_handler.memory if item.type == "file"]),
+            "folders": len([item for item in knowledge_file_handler.memory if item.type == "folder"]),
+            "images": len([item for item in knowledge_file_handler.memory if item.type == "image"]),
+        }
+        
+        # Get LLM stats using available methods
+        models_info = llm_manager.get_available_models()
+        
+        llm_stats = {
+            "default_model": llm_manager.service_config.get_default_model() or "",
+            "all_models": models_info.get("all_models", []),
+            "services": {
+                service_id: {
+                    "available": service_id in llm_manager.services and llm_manager.services[service_id].is_available(),
+                    "status": "Available" if service_id in llm_manager.services and llm_manager.services[service_id].is_available() else "Offline",
+                    "models": service_config.get("config", {}).get("models", [])
+                }
+                for service_id, service_config in llm_manager.service_config.get_services().items()
+            }
+        }
+        
         return {
-            "short_term_memory": {
-                "total_items": len(knowledge_file_handler),
-                "files": len(
-                    [item for item in knowledge_file_handler if item.type == "file"]
-                ),
-                "folders": len(
-                    [item for item in knowledge_file_handler if item.type == "folder"]
-                ),
-                "images": len(
-                    [item for item in knowledge_file_handler if item.type == "image"]
-                ),
-            },
+            "short_term_memory": memory_stats,
             "long_term_memory": {"total_actions": len(action_handler)},
-            "llm_services": llm_manager.get_available_models(),
+            "llm_services": llm_stats
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting stats: {str(e)}")
@@ -198,3 +242,58 @@ async def health_check():
         }
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
+
+
+# Service Configuration Endpoints
+@router.post("/services/add")
+async def add_service(request: ServiceConfigRequest):
+    """Add a new LLM service configuration"""
+    try:
+        result = llm_manager.add_service(
+            request.service_id, 
+            request.service_type, 
+            request.config
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding service: {str(e)}")
+
+
+@router.delete("/services/{service_id}")
+async def remove_service(service_id: str):
+    """Remove a service configuration"""
+    try:
+        result = llm_manager.remove_service(service_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing service: {str(e)}")
+
+
+@router.post("/services/test")
+async def test_service(request: TestServiceRequest):
+    """Test a service configuration without saving it"""
+    try:
+        result = llm_manager.test_service(request.service_type, request.config)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error testing service: {str(e)}")
+
+
+@router.get("/services")
+async def get_services():
+    """Get all configured services"""
+    try:
+        models_info = llm_manager.get_available_models()
+        return models_info["services"]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting services: {str(e)}")
+
+
+@router.post("/models/default")
+async def set_default_model(request: SetDefaultModelRequest):
+    """Set the default model"""
+    try:
+        result = llm_manager.set_default_model(request.model)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error setting default model: {str(e)}")

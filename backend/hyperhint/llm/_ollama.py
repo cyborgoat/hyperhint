@@ -84,12 +84,7 @@ class OllamaService:
     def list_models(self) -> List[str]:
         """List available Ollama models"""
         if not self.client:
-            # Get fallback models from environment variable
-            fallback_models = os.getenv("OLLAMA_FALLBACK_MODELS", "")
-            if fallback_models:
-                return [model.strip() for model in fallback_models.split(",") if model.strip()]
-            else:
-                return []  # Return empty list instead of hardcoded defaults
+            return []  # No fallbacks - clean slate
             
         try:
             models_response = self.client.list()
@@ -100,20 +95,27 @@ class OllamaService:
                 return []
         except Exception as e:
             print(f"Error listing Ollama models: {e}")
-            # Get fallback models from environment variable
-            fallback_models = os.getenv("OLLAMA_FALLBACK_MODELS", "")
-            if fallback_models:
-                return [model.strip() for model in fallback_models.split(",") if model.strip()]
-            else:
-                return []  # Return empty list instead of hardcoded defaults
+            return []  # No fallbacks - clean slate
     
-    def is_available(self) -> bool:
-        """Check if Ollama service is available"""
+    def is_available(self, test_model: Optional[str] = None) -> bool:
+        """Check if Ollama service is available, optionally test with a specific model"""
         if not self.client:
             return False
             
         try:
+            # First check if Ollama server is reachable
             self.client.list()
+            
+            # If a specific model is provided, test it
+            if test_model:
+                try:
+                    # Try to get info about the specific model
+                    self.client.show(test_model)
+                    return True
+                except Exception:
+                    # Model might not be pulled yet, but server is available
+                    return True
+            
             return True
         except Exception:
             return False
