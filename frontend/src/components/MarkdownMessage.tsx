@@ -1,6 +1,6 @@
 "use client";
 
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeHighlight from 'rehype-highlight';
@@ -8,6 +8,11 @@ import rehypeRaw from 'rehype-raw';
 
 // Import highlight.js CSS for syntax highlighting
 import 'highlight.js/styles/atom-one-dark.css';
+
+// Define a local interface to extend the Components type
+interface MyComponents extends Components {
+  think?: React.ElementType;
+}
 
 interface MarkdownMessageProps {
   content: string;
@@ -140,7 +145,11 @@ export default function MarkdownMessage({ content, className = "" }: MarkdownMes
               <hr className="border-muted my-4" {...props} />
             );
           },
-        }}
+          // Custom component to handle the <think> tag as plain text
+          think({ children }: { children: React.ReactNode }) {
+            return <>{children}</>;
+          },
+        } as MyComponents}
       >
         {content}
       </ReactMarkdown>

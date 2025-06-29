@@ -19,6 +19,7 @@ interface Message {
     name: string;
     url?: string;
   }>;
+  thinkingProcess?: string;
 }
 
 export default function ChatInterface() {
@@ -61,6 +62,7 @@ export default function ChatInterface() {
       content: "",
       role: "assistant",
       timestamp: new Date(),
+      thinkingProcess: "",
     };
 
     setMessages((prev) => [...prev, assistantMessage]);
@@ -129,11 +131,15 @@ export default function ChatInterface() {
 
       let buffer = "";
       let assistantContent = "";
+      let inThinkingBlock = false; // Flag to track if we are inside a <think> block
+      let thinkingProcessContent = ""; // This will accumulate the thinking content
 
       while (true) {
         const { done, value } = await reader.read();
         
-        if (done) break;
+        if (done) {
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -177,16 +183,32 @@ export default function ChatInterface() {
                   break;
                   
                 case 'content':
-                  // Turn off loading state on first content chunk
-                  if (assistantContent === "" || assistantContent.startsWith("🔄")) {
-                    setIsLoading(false);
+                  let newContent = data.content;
+
+                  if (newContent.includes("<think>")) {
+                    inThinkingBlock = true;
+                    newContent = newContent.replace("<think>", "");
                   }
-                  // Append content to assistant message using text utilities
-                  assistantContent = accumulateStreamingContent(assistantContent, data.content);
+
+                  if (newContent.includes("</think>")) {
+                    inThinkingBlock = false;
+                    newContent = newContent.replace("</think>", "");
+                  }
+
+                  if (inThinkingBlock) {
+                    thinkingProcessContent += newContent; // Accumulate thinking content
+                  } else {
+                    // Turn off loading state on first content chunk
+                    if (assistantContent === "" || assistantContent.startsWith("🔄")) {
+                      setIsLoading(false);
+                    }
+                    assistantContent = accumulateStreamingContent(assistantContent, newContent);
+                  }
+
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === assistantMessageId
-                        ? { ...msg, content: assistantContent }
+                        ? { ...msg, content: assistantContent, thinkingProcess: thinkingProcessContent }
                         : msg
                     )
                   );
@@ -262,6 +284,8 @@ export default function ChatInterface() {
         };
         setMessages((prev) => [...prev, fallbackMessage]);
       }, 1000);
+    } finally {
+      // No need to clear thinkingContent state as it's removed
     }
   };
 
@@ -417,6 +441,12 @@ export default function ChatInterface() {
                             <p className="text-sm leading-relaxed whitespace-pre-wrap">
                               {message.content}
                             </p>
+                          )}
+                          {message.thinkingProcess && ( // Display thinking process if available
+                            <div className="mt-2 pt-2 border-t border-muted/50 text-xs text-muted-foreground italic">
+                              <p className="font-semibold mb-1">Thinking Process:</p>
+                              <MarkdownMessage content={message.thinkingProcess} />
+                            </div>
                           )}
                         </div>
 
