@@ -16,6 +16,8 @@ import remarkBreaks from 'remark-breaks';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
 interface FileItem {
   id: string;
   label: string;
@@ -131,7 +133,7 @@ export default function KnowledgeSidebar() {
 
   const fetchFiles = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/files');
+      const response = await fetch(`${BACKEND_URL}/api/files`);
       if (response.ok) {
         const data = await response.json();
         const fileList = Array.isArray(data) ? data : [];
@@ -145,7 +147,7 @@ export default function KnowledgeSidebar() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/stats');
+      const response = await fetch(`${BACKEND_URL}/api/stats`);
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -158,7 +160,7 @@ export default function KnowledgeSidebar() {
 
   const fetchServices = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/services');
+      const response = await fetch(`${BACKEND_URL}/api/services`);
       if (response.ok) {
         const data = await response.json();
         setServices(data);
@@ -174,7 +176,7 @@ export default function KnowledgeSidebar() {
     setIsLoadingContent(true);
     
     try {
-      const response = await fetch(`http://localhost:8000/api/files/content?path=${encodeURIComponent(filePath)}`);
+      const response = await fetch(`${BACKEND_URL}/api/files/content?path=${encodeURIComponent(filePath)}`);
       if (response.ok) {
         const rawContent = await response.text();
         const parsedContent = parseFileContent(rawContent);
@@ -217,12 +219,10 @@ export default function KnowledgeSidebar() {
     }
   };
 
-
-
   const refreshKnowledge = async () => {
     setIsRefreshing(true);
     try {
-      await fetch('http://localhost:8000/api/refresh', { method: 'POST' });
+      await fetch(`${BACKEND_URL}/api/refresh`, { method: 'POST' });
       await Promise.all([fetchFiles(), fetchStats()]);
     } catch (error) {
       console.error('Failed to refresh knowledge:', error);
@@ -415,7 +415,7 @@ export default function KnowledgeSidebar() {
     <>
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="w-9 h-9">
+          <Button variant="ghost" size="icon" className="w-9 h-9">
             <Menu className="w-4 h-4" />
           </Button>
         </SheetTrigger>

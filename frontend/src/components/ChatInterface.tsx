@@ -9,6 +9,8 @@ import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import MarkdownMessage from "@/components/MarkdownMessage";
 import { processMarkdownContent, accumulateStreamingContent } from "@/lib/textUtils";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
 interface Message {
   id: string;
   content: string;
@@ -100,7 +102,7 @@ export default function ChatInterface() {
       );
 
       // Connect to SSE endpoint
-      const response = await fetch("http://localhost:8000/api/chat/stream", {
+      const response = await fetch(`${BACKEND_URL}/api/chat/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -293,7 +295,7 @@ export default function ChatInterface() {
     if (currentStreamRef.current?.streamId) {
       try {
         // Send stop request to backend
-        await fetch("http://localhost:8000/api/chat/stop", {
+        await fetch(`${BACKEND_URL}/api/chat/stop`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -327,7 +329,7 @@ export default function ChatInterface() {
       {/* Header with model selector */}
       <div className="flex-shrink-0 border-b px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                   <div className="flex justify-between items-center mx-auto max-w-4xl">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1">
               <KnowledgeSidebar />
               <h1 className="text-lg font-semibold">HyperHint</h1>
             </div>
@@ -443,8 +445,8 @@ export default function ChatInterface() {
                             </p>
                           )}
                           {message.thinkingProcess && ( // Display thinking process if available
-                            <div className="mt-2 pt-2 border-t border-muted/50 text-xs text-muted-foreground italic">
-                              <p className="font-semibold mb-1">Thinking Process:</p>
+                            <div className="pt-2 mt-2 text-xs italic border-t border-muted/50 text-muted-foreground">
+                              <p className="mb-1 font-semibold">Thinking Process:</p>
                               <MarkdownMessage content={message.thinkingProcess} />
                             </div>
                           )}
