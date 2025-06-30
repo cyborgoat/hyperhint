@@ -8,6 +8,7 @@ import asyncio
 import os
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
+import httpx
 
 try:
     from openai import AsyncOpenAI, OpenAI
@@ -27,15 +28,23 @@ class OpenAIService:
         self.client = None
         self.sync_client = None
 
+        # Determine SSL verification setting for OpenAI
+        trust_env_setting = os.getenv("OPENAI_TRUST_ENV", "False").lower() == "true"
+        verify_ssl_setting = os.getenv("OPENAI_VERIFY_SSL", "True").lower() == "true"
+
+        # Create httpx clients with configurable verify
+        http_client = httpx.Client(trust_env=trust_env_setting, verify=verify_ssl_setting)
+        async_http_client = httpx.AsyncClient(trust_env=trust_env_setting, verify=verify_ssl_setting)
+
         if AsyncOpenAI and OpenAI:
             if base_url:
                 # For OpenAI-compatible endpoints (like local LLMs)
-                self.client = AsyncOpenAI(api_key=api_key or "dummy", base_url=base_url)
-                self.sync_client = OpenAI(api_key=api_key or "dummy", base_url=base_url)
+                self.client = AsyncOpenAI(api_key=api_key or "dummy", base_url=base_url, http_client=async_http_client)
+                self.sync_client = OpenAI(api_key=api_key or "dummy", base_url=base_url, http_client=http_client)
             elif api_key:
                 # For official OpenAI API
-                self.client = AsyncOpenAI(api_key=api_key)
-                self.sync_client = OpenAI(api_key=api_key)
+                self.client = AsyncOpenAI(api_key=api_key, http_client=async_http_client)
+                self.sync_client = OpenAI(api_key=api_key, http_client=http_client)
 
     async def stream_chat(
         self,

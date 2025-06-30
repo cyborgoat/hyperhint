@@ -19,8 +19,11 @@ except ImportError:
 class OllamaService:
     def __init__(self, host: str = "http://localhost:11434"):
         self.host = host
-        self.client = Client(host=host) if Client else None
-        self.async_client = AsyncClient(host=host) if AsyncClient else None
+        # Ollama trust_env setting
+        trust_env_setting = os.getenv("OLLAMA_TRUST_ENV", "False").lower() == "true"
+        verify_ssl_setting = os.getenv("OLLAMA_VERIFY_SSL", "False").lower() == "true"
+        self.client = Client(host=host, trust_env=trust_env_setting,verify=verify_ssl_setting) if Client else None
+        self.async_client = AsyncClient(host=host, trust_env=trust_env_setting,verify=verify_ssl_setting) if AsyncClient else None
         
     async def stream_chat(
         self, 

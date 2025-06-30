@@ -5,11 +5,15 @@ Quick start script for HyperHint backend development
 
 import os
 import sys
+from dotenv import load_dotenv
 
 import uvicorn
 
 # Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Load environment variables from .env file
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
 if __name__ == "__main__":
     print("🚀 Starting HyperHint Backend Server...")
