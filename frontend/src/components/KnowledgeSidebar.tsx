@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Menu, FileText, RefreshCw, Database, Server, Brain, Folder, FolderOpen, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
@@ -15,6 +15,8 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -81,6 +83,10 @@ export default function KnowledgeSidebar() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [isDarkMode] = useState(true); // You can connect this to your theme system
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedFileContent, setEditedFileContent] = useState<string>('');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
 
   const buildFileTree = (files: FileItem[]): TreeNode[] => {
     const tree: TreeNode[] = [];
@@ -173,23 +179,63 @@ export default function KnowledgeSidebar() {
 
   const handleFileClick = async (filePath: string, fileName: string) => {
     setSelectedFile(fileName);
+    setSelectedFilePath(filePath);
     setIsLoadingContent(true);
-    
+    setIsEditing(false);
+
     try {
       const response = await fetch(`${BACKEND_URL}/api/files/content?path=${encodeURIComponent(filePath)}`);
       if (response.ok) {
         const rawContent = await response.text();
         const parsedContent = parseFileContent(rawContent);
         setFileContent(parsedContent);
+        setEditedFileContent(parsedContent);
       } else {
         setFileContent('Error loading file content');
+        setEditedFileContent('Error loading file content');
       }
     } catch (error) {
       console.error('Error fetching file content:', error);
       setFileContent('Error loading file content');
+      setEditedFileContent('Error loading file content');
     } finally {
       setIsLoadingContent(false);
     }
+  };
+
+  const saveFileContent = useCallback(async () => {
+    if (!selectedFilePath) return;
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/files/content`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          path: selectedFilePath,
+          content: editedFileContent,
+        }),
+      });
+
+      if (response.ok) {
+        setFileContent(editedFileContent);
+        setIsEditing(false);
+        alert('File saved successfully!');
+      } else {
+        alert('Failed to save file.');
+        console.error('Failed to save file:', response.statusText);
+      }
+    } catch (error) {
+      alert('Error saving file.');
+      console.error('Error saving file:', error);
+    } finally {
+      setShowConfirmDialog(false);
+    }
+  }, [selectedFilePath, editedFileContent]);
+
+  const handleSaveConfirm = () => {
+    saveFileContent();
   };
 
   // Helper function to properly parse JSON content and handle escaped characters
@@ -446,7 +492,7 @@ export default function KnowledgeSidebar() {
                 </Button>
               </div>
               
-              {stats && (
+              {stats ? (
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Files:</span>
@@ -478,6 +524,13 @@ export default function KnowledgeSidebar() {
                     </div>
                   )}
                 </div>
+              ) : (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-[200px]" />
+                  <Skeleton className="h-4 w-[180px]" />
+                  <Skeleton className="h-4 w-[220px]" />
+                  <Skeleton className="h-4 w-[150px]" />
+                </div>
               )}
             </div>
 
@@ -491,7 +544,11 @@ export default function KnowledgeSidebar() {
               </h3>
               <div className="space-y-2">
                 {Object.keys(services).length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No services configured</p>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-[150px]" />
+                    <Skeleton className="h-4 w-[100px]" />
+                    <Skeleton className="h-4 w-[120px]" />
+                  </div>
                 ) : (
                   Object.entries(services).map(([serviceId, service]) => (
                     <div key={serviceId} className="flex justify-between items-center text-xs">
@@ -518,7 +575,11 @@ export default function KnowledgeSidebar() {
               </h3>
               <div className="space-y-1">
                 {fileTree.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No files found</p>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-[200px]" />
+                    <Skeleton className="h-4 w-[180px]" />
+                    <Skeleton className="h-4 w-[220px]" />
+                  </div>
                 ) : (
                   fileTree.map(node => renderTreeNode(node))
                 )}
@@ -530,7 +591,10 @@ export default function KnowledgeSidebar() {
 
       {/* File Content Dialog */}
       <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
-        <DialogContent className="max-w-6xl w-[90vw] h-[90vh]">
+        <DialogTrigger asChild>
+          <Button style={{ display: 'none' }}>Hidden Dialog Trigger</Button>
+        </DialogTrigger>
+        <DialogContent className="min-w-3xl w-11/12 h-[90vh]">
           <DialogHeader>
             <DialogTitle className="flex gap-2 items-center">
               <FileText className="w-4 h-4" />
@@ -539,20 +603,58 @@ export default function KnowledgeSidebar() {
           </DialogHeader>
           <div className="overflow-hidden flex-1">
             <ScrollArea className="h-[calc(90vh-120px)] w-full">
-              <div className="p-6">
+              <div className="p-4">
                 {isLoadingContent ? (
                   <div className="flex justify-center items-center py-8">
                     <RefreshCw className="mr-2 w-6 h-6 animate-spin" />
                     Loading file content...
                   </div>
+                ) : isEditing ? (
+                  <textarea
+                    className="w-full h-[calc(90vh-200px)] resize-none font-mono text-sm p-4 bg-muted rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={editedFileContent}
+                    onChange={(e) => setEditedFileContent(e.target.value)}
+                  />
                 ) : (
                   <FileContentRenderer content={fileContent} filename={selectedFile || ''} />
                 )}
               </div>
             </ScrollArea>
           </div>
+          <div className="flex gap-2 justify-end p-4 pt-0">
+            {isEditing ? (
+              <>
+                <Button variant="outline" onClick={() => {
+                  setIsEditing(false);
+                  setEditedFileContent(fileContent);
+                }}>Cancel</Button>
+                <Button onClick={() => setShowConfirmDialog(true)}>Save</Button>
+              </>
+            ) : (
+              <Button onClick={() => setIsEditing(true)}>Edit</Button>
+            )}
+            <Button variant="outline" onClick={() => setSelectedFile(null)}>Close</Button>
+          </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogTrigger asChild>
+          <Button style={{ display: 'none' }}>Hidden Trigger</Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save changes to this file? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveConfirm}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 } 

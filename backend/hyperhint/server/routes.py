@@ -27,6 +27,11 @@ class SetDefaultModelRequest(BaseModel):
     model: str
 
 
+class UpdateFileContentRequest(BaseModel):
+    path: str
+    content: str
+
+
 @router.post("/generate-filename")
 async def generate_filename(request: FilenameRequest):
     """Generate a filename from content previews using an LLM"""
@@ -78,7 +83,14 @@ async def get_file_content(path: str = Query(..., description="File path")):
         raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
 
 
-
+@router.post("/files/content")
+async def update_file_content(request: UpdateFileContentRequest):
+    """Update file content by path"""
+    try:
+        knowledge_file_handler.write_file_content(request.path, request.content)
+        return {"message": "File updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating file: {str(e)}")
 
 
 @router.get("/actions")

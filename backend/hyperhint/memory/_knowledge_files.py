@@ -249,17 +249,46 @@ class KnowledgeFileHandler:
             # Limit content size to avoid overwhelming the context
             max_size = 10000  # 10KB limit
             if len(content) > max_size:
-                content = (
-                    content[:max_size]
-                    + f"\n\n[Content truncated - file size: {len(content)} characters]"
-                )
+                content = content[:max_size] + "\n[... content truncated ...]"
 
             return content
-
         except Exception as e:
-            return f"[Error reading file: {str(e)}]"
+            print(f"Error reading file {file_path}: {e}")
+            return None
+
+    def write_file_content(self, file_path: str, content: str) -> bool:
+        """Write content to a file in memory"""
+        try:
+            # Convert relative path to absolute path
+            if file_path.startswith("./"):
+                file_path = file_path[2:]
+
+            full_path = Path(__file__).parent.parent.parent / file_path
+
+            if not full_path.exists():
+                print(f"File not found for writing: {full_path}")
+                return False
+
+            # Ensure directory exists
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(full_path, "w", encoding="utf-8") as f:
+                f.write(content)
+
+            # Update the memory item's size (optional, but good for consistency)
+            for item in self.memory:
+                if item.file_path == file_path:
+                    item.size = len(content.encode("utf-8"))
+                    break
+
+            print(f"Successfully wrote content to {file_path}")
+            return True
+        except Exception as e:
+            print(f"Error writing to file {file_path}: {e}")
+            return False
 
     def clear(self):
+        """Clear all memory items"""
         self.memory = []
 
     def refresh(self):

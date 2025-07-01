@@ -106,6 +106,11 @@ export default function ModelSelector({
     // Refresh state for individual services
     const [refreshingServices, setRefreshingServices] = useState<Set<string>>(new Set());
 
+    // OpenAI models raw input for comma handling
+    const [openaiModelsInput, setOpenaiModels] = useState<string>('');
+    // Test status message
+    const [testStatusMessage, setTestStatusMessage] = useState<string>('');
+
     const fetchModels = useCallback(async () => {
         try {
             const response = await fetch("http://localhost:8000/api/models");
@@ -166,6 +171,7 @@ export default function ModelSelector({
         setTesting(true);
         setTestResult({ success: false });
         setDiscoveredModels([]);
+        setTestStatusMessage('Checking connection...');
         
         // Create abort controller for cancellation
         const abortController = new AbortController();
@@ -174,6 +180,11 @@ export default function ModelSelector({
         try {
             const config: Record<string, string | string[]> = { ...serviceConfig };
             
+            // Parse OpenAI models input string if applicable
+            if (selectedServiceType === "openai" && openaiModelsInput) {
+                config.models = openaiModelsInput.split(',').map(m => m.trim()).filter(Boolean);
+            }
+            setTestStatusMessage('Sending test request...');
             const response = await fetch("http://localhost:8000/api/services/test", {
                 method: "POST",
                 headers: {
@@ -192,25 +203,29 @@ export default function ModelSelector({
                 setTestResult({
                     success: true,
                     available: true,
-                    message: `✅ Connected successfully! Found ${result.models?.length || 0} models.`,
+                    message: `✅ Connected successfully! Found ${result.models?.length || 0} models.`, // This will be replaced by the animated message
                     models: result.models || [],
                 });
                 setDiscoveredModels(result.models || []);
+                setTestStatusMessage('Models discovered!');
                 
                 // For OpenAI services, if models were provided in config, use those
                 if (selectedServiceType === "openai" && serviceConfig.models?.length) {
                     setDiscoveredModels(serviceConfig.models);
                     // Auto-select the configured models
                     setSelectedModels(new Set(serviceConfig.models));
+                    setTestStatusMessage('Using configured OpenAI models.');
                 } else {
                     // Auto-select all discovered models
                     setSelectedModels(new Set(result.models || []));
+                    setTestStatusMessage('All discovered models selected.');
                 }
             } else if (result.success && !result.available) {
                 setTestResult({
                     success: false,
                     message: "❌ Service is reachable but not available. Check your configuration.",
                 });
+                setTestStatusMessage('Service reachable but not available.');
             } else {
                 // Parse error message for better user feedback
                 let errorMessage = result.error || "Test failed";
@@ -232,6 +247,7 @@ export default function ModelSelector({
                     success: false,
                     message: errorMessage,
                 });
+                setTestStatusMessage('Test failed.');
             }
         } catch (error: unknown) {
             if (error instanceof Error && error.name === 'AbortError') {
@@ -239,15 +255,19 @@ export default function ModelSelector({
                     success: false,
                     message: "⏹️ Test cancelled by user",
                 });
+                setTestStatusMessage('Test cancelled.');
             } else {
                 setTestResult({
                     success: false,
                     message: `❌ Connection error: ${error instanceof Error ? error.message : String(error)}`,
                 });
+                setTestStatusMessage('Connection error.');
             }
         } finally {
             setTesting(false);
             setTestAbortController(null);
+            // Clear the test status message after a short delay or if a final result message is set
+            setTimeout(() => setTestStatusMessage(''), 3000);
         }
     };
 
@@ -264,6 +284,11 @@ export default function ModelSelector({
                 ...serviceConfig,
                 models: Array.from(selectedModels) // Only include selected models
             };
+            
+            // If OpenAI, ensure models in config are from the raw input initially
+            if (selectedServiceType === "openai" && openaiModelsInput) {
+                config.models = openaiModelsInput.split(',').map(m => m.trim()).filter(Boolean);
+            }
             
             // If editing, remove the old service first
             if (editingServiceId) {
@@ -386,6 +411,7 @@ export default function ModelSelector({
                 models: models,
             });
             setDiscoveredModels(models);
+            setOpenaiModels(models.join(',')); // Set raw input string
         }
         
         // Set selected models
@@ -441,6 +467,7 @@ export default function ModelSelector({
         setDiscoveredModels([]);
         setSelectedModels(new Set());
         setEditingServiceId(null);
+        setOpenaiModels(''); // Clear raw OpenAI models input
     };
 
     const toggleModelSelection = (modelId: string) => {
@@ -846,17 +873,9 @@ export default function ModelSelector({
                                                 <Input
                                                     id="openai-models"
                                                     placeholder="deepseek-chat,deepseek-reasoner (DeepSeek) | qwen-plus,qwen-turbo (Qwen) | gpt-4,gpt-3.5-turbo (OpenAI)"
-                                                    value={serviceConfig.models?.join(",") || ""}
+                                                    value={openaiModelsInput}
                                                     onChange={(e) => {
-                                                        const inputValue = e.target.value;
-                                                        const models = inputValue.split(",").map(m => m.trim()).filter(Boolean);
-                                                        setServiceConfig({ 
-                                                            ...serviceConfig, 
-                                                            models: models
-                                                        });
-                                                        setDiscoveredModels(models);
-                                                        // Automatically select all typed models
-                                                        setSelectedModels(new Set(models));
+                                                        setOpenaiModels(e.target.value);
                                                     }}
                                                 />
                                                 <p className="text-xs text-muted-foreground">
@@ -887,7 +906,7 @@ export default function ModelSelector({
                                                 variant="destructive"
                                             >
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Cancel Test
+                                                {testStatusMessage || "Cancel Test"}
                                             </Button>
                                         )}
 
